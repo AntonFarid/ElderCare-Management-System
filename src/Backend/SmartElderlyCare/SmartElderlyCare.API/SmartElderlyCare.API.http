@@ -1,0 +1,6 @@
+@SmartElderlyCare.API_HostAddress = http://localhost:5214
+
+GET {{SmartElderlyCare.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

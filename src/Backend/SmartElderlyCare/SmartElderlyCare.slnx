@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SmartElderlyCare.API/SmartElderlyCare.API.csproj" />
+  <Project Path="SmartElderlyCare.Application/SmartElderlyCare.Application.csproj" />
+  <Project Path="SmartElderlyCare.Domain/SmartElderlyCare.Domain.csproj" />
+  <Project Path="SmartElderlyCare.Infrastructure/SmartElderlyCare.Infrastructure.csproj" />
+</Solution>

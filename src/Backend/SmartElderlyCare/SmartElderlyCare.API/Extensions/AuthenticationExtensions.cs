@@ -1,0 +1,153 @@
+﻿using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using SmartElderlyCare.Application.Common.Settings;
+
+namespace SmartElderlyCare.API.Extensions;
+
+/// <summary>
+/// Extension methods for JWT authentication setup
+/// </summary>
+public static class AuthenticationExtensions
+{
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Get JWT settings
+        var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>();
+
+        if (jwtSettings == null)
+        {
+            throw new InvalidOperationException("JWT settings not configured");
+        }
+
+        // Configure JWT authentication
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.RequireHttpsMetadata = false;
+            options.SaveToken = true;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtSettings.Issuer,
+                ValidAudience = jwtSettings.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+                ClockSkew = TimeSpan.Zero
+            };
+
+            // Customize token retrieval from cookie or header
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    // Try to get token from Authorization header first
+                    var authorizationHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+
+                    if (!string.IsNullOrEmpty(authorizationHeader) && authorizationHeader.StartsWith("Bearer "))
+                    {
+                        context.Token = authorizationHeader.Substring("Bearer ".Length).Trim();
+                    }
+
+                    return Task.CompletedTask;
+                },
+                OnAuthenticationFailed = context =>
+                {
+                    if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                    {
+                        context.Response.Headers.Add("Token-Expired", "true");
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        });
+
+        // Configure authorization policies for each role
+        services.AddAuthorization(options =>
+        {
+            // Admin policy
+            options.AddPolicy("RequireAdminRole", policy =>
+                policy.RequireRole("Admin"));
+
+            // TeamLeader policy
+            options.AddPolicy("RequireTeamLeaderRole", policy =>
+                policy.RequireRole("TeamLeader"));
+
+            // Employee policy
+            options.AddPolicy("RequireEmployeeRole", policy =>
+                policy.RequireRole("Employee"));
+
+            // FamilyMember policy
+            options.AddPolicy("RequireFamilyMemberRole", policy =>
+                policy.RequireRole("FamilyMember"));
+
+            // Combined policies
+            options.AddPolicy("RequireAdminOrTeamLeader", policy =>
+                policy.RequireRole("Admin", "TeamLeader"));
+
+            options.AddPolicy("RequireEmployeeOrTeamLeader", policy =>
+                policy.RequireRole("Employee", "TeamLeader"));
+
+            options.AddPolicy("RequireAllRoles", policy =>
+                policy.RequireRole("Admin", "TeamLeader", "Employee", "FamilyMember"));
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Configure Swagger with JWT support
+    /// </summary>
+    public static IServiceCollection AddSwaggerWithJwt(this IServiceCollection services)
+    {
+        services.AddSwaggerGen(c =>
+        {
+            c.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "Smart Elderly Care API",
+                Version = "v1",
+                Description = "API for Smart Elderly Care Management System",
+                Contact = new OpenApiContact
+                {
+                    Name = "Support",
+                    Email = "support@smartcare.com"
+                }
+            });
+
+            // Add JWT Authentication to Swagger
+            c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token",
+                Name = "Authorization",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.ApiKey,
+                Scheme = "Bearer"
+            });
+
+            c.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
+                }
+            });
+        });
+
+        return services;
+    }
+}
