@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartElderlyCare.Infrastructure.Data.Context;
 
@@ -11,9 +12,11 @@ using SmartElderlyCare.Infrastructure.Data.Context;
 namespace SmartElderlyCare.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260223133950_AddEmployeeModuleFields")]
+    partial class AddEmployeeModuleFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -725,16 +728,11 @@ namespace SmartElderlyCare.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("UpdatedById")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedById");
 
                     b.HasIndex("EmployeeId");
-
-                    b.HasIndex("UpdatedById");
 
                     b.ToTable("WorkSchedules");
                 });
@@ -927,17 +925,9 @@ namespace SmartElderlyCare.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SmartElderlyCare.Domain.Entities.User", "UpdatedBy")
-                        .WithMany()
-                        .HasForeignKey("UpdatedById")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("CreatedBy");
 
                     b.Navigation("Employee");
-
-                    b.Navigation("UpdatedBy");
                 });
 
             modelBuilder.Entity("SmartElderlyCare.Domain.Entities.DailyReport", b =>

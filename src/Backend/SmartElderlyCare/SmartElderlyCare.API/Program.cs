@@ -4,6 +4,7 @@ using SmartElderlyCare.API.Extensions;
 using SmartElderlyCare.API.Middleware;
 using SmartElderlyCare.Application.Common.Settings;
 using SmartElderlyCare.Application.Interfaces;
+using SmartElderlyCare.Application.Mappings;
 using SmartElderlyCare.Domain.Entities;
 using SmartElderlyCare.Infrastructure.Data.Context;
 using SmartElderlyCare.Infrastructure.Data.Seeds;
@@ -19,6 +20,15 @@ builder.Services.AddRepositoryLayer(builder.Configuration);
 
 // Register JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+
+// Register AutoMapper
+builder.Services.AddAutoMapper(typeof(MappingProfile));
+
+// Register Employee Service
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+
+// Register Team Leader Service
+builder.Services.AddScoped<ITeamLeaderService, TeamLeaderService>();
 
 // Register Identity
 builder.Services.AddIdentity<User, Role>(options =>
@@ -49,7 +59,14 @@ builder.Services.AddHttpContextAccessor();
 // Add JWT Authentication
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Configure JSON serialization settings
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwt();

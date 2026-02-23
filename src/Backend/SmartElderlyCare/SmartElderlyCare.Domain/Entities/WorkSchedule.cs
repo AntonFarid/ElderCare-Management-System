@@ -21,4 +21,5 @@ public class WorkSchedule : BaseEntity
     // Navigation properties
     public virtual User Employee { get; set; } = null!;
     public virtual User CreatedBy { get; set; } = null!;
+    public virtual User UpdatedBy { get;set; } = null!;
 }
