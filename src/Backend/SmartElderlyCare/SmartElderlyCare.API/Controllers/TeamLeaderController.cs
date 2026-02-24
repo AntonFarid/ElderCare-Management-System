@@ -2,9 +2,11 @@
 using Microsoft.AspNetCore.Mvc;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.DailyReport;
+using SmartElderlyCare.Application.DTOs.Family;
 using SmartElderlyCare.Application.DTOs.Schedule;
 using SmartElderlyCare.Application.DTOs.TeamLeader;
 using SmartElderlyCare.Application.DTOs.User;
+using SmartElderlyCare.Application.DTOs.Visit;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 
@@ -390,6 +392,96 @@ public class TeamLeaderController : ControllerBase
     public async Task<IActionResult> GetTodayScheduleSummary()
     {
         var response = await _teamLeaderService.GetTodayScheduleSummaryAsync();
+        return Ok(response);
+    }
+
+    #endregion
+
+    #region Visit Request Management
+
+    /// <summary>
+    /// Get paginated list of pending visit requests
+    /// </summary>
+    /// <param name="parameters">Filter parameters</param>
+    /// <returns>Paginated list of pending visit requests</returns>
+    [HttpGet("visits/pending")]
+    [ProducesResponseType(typeof(Response<PaginatedResponse<List<VisitRequestDto>>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetPendingVisitRequests([FromQuery] VisitFilterParameters parameters)
+    {
+        var response = await _teamLeaderService.GetPendingVisitRequestsAsync(parameters);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get detailed visit request information for approval
+    /// </summary>
+    /// <param name="visitId">ID of the visit request</param>
+    /// <returns>Visit request details</returns>
+    [HttpGet("visits/{visitId}")]
+    [ProducesResponseType(typeof(Response<VisitRequestDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetVisitRequestDetails(int visitId)
+    {
+        var response = await _teamLeaderService.GetVisitRequestDetailsAsync(visitId);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Approve a visit request
+    /// </summary>
+    /// <param name="approveDto">Approval data</param>
+    /// <returns>Approved visit request</returns>
+    [HttpPost("visits/approve")]
+    [ProducesResponseType(typeof(Response<VisitRequestDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ApproveVisitRequest([FromBody] ApproveVisitDto approveDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new Response<string>("Invalid request data"));
+        }
+
+        var teamLeaderId = GetCurrentTeamLeaderId();
+        var response = await _teamLeaderService.ApproveVisitRequestAsync(teamLeaderId, approveDto);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Reject a visit request with reason
+    /// </summary>
+    /// <param name="rejectDto">Rejection data with reason</param>
+    /// <returns>Rejected visit request</returns>
+    [HttpPost("visits/reject")]
+    [ProducesResponseType(typeof(Response<VisitRequestDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RejectVisitRequest([FromBody] RejectVisitDto rejectDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new Response<string>("Invalid request data"));
+        }
+
+        var teamLeaderId = GetCurrentTeamLeaderId();
+        var response = await _teamLeaderService.RejectVisitRequestAsync(teamLeaderId, rejectDto);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get visit requests summary for dashboard
+    /// </summary>
+    /// <returns>Visit summary statistics</returns>
+    [HttpGet("visits/summary")]
+    [ProducesResponseType(typeof(Response<VisitSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetVisitRequestsSummary()
+    {
+        var response = await _teamLeaderService.GetVisitRequestsSummaryAsync();
         return Ok(response);
     }
 

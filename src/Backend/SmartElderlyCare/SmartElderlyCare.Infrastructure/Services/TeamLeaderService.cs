@@ -1,24 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartElderlyCare.Application.Common.Exceptions;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.DailyReport;
+using SmartElderlyCare.Application.DTOs.Family;
 using SmartElderlyCare.Application.DTOs.Schedule;
 using SmartElderlyCare.Application.DTOs.TeamLeader;
 using SmartElderlyCare.Application.DTOs.User;
+using SmartElderlyCare.Application.DTOs.Visit;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 using SmartElderlyCare.Domain.Entities;
 using SmartElderlyCare.Domain.Enums;
 using SmartElderlyCare.Domain.Interfaces;
 using SmartElderlyCare.Infrastructure.Data.Context;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace SmartElderlyCare.Infrastructure.Services;
 
@@ -1310,6 +1312,420 @@ public class TeamLeaderService : ITeamLeaderService
             return "Late";
 
         return "Present";
+    }
+
+    #endregion
+    #region Visit Request Management
+
+    /// <summary>
+    /// Get paginated list of pending visit requests
+    /// </summary>
+    public async Task<Response<PaginatedResponse<List<VisitRequestDto>>>> GetPendingVisitRequestsAsync(
+        VisitFilterParameters parameters)
+    {
+        try
+        {
+            _logger.LogInformation("Getting pending visit requests");
+
+            var query = _context.VisitRequests
+                .Include(v => v.FamilyMember)
+                .Include(v => v.Elderly)
+                .Where(v => v.Status == VisitStatus.Pending && !v.IsDeleted)
+                .AsQueryable();
+
+            // Apply filters
+            if (parameters.ElderlyId.HasValue)
+            {
+                query = query.Where(v => v.ElderlyId == parameters.ElderlyId.Value);
+            }
+
+            if (parameters.FromDate.HasValue)
+            {
+                query = query.Where(v => v.RequestedDate >= parameters.FromDate.Value);
+            }
+
+            if (parameters.ToDate.HasValue)
+            {
+                var toDate = parameters.ToDate.Value.Date.AddDays(1).AddSeconds(-1);
+                query = query.Where(v => v.RequestedDate <= toDate);
+            }
+
+            // Apply sorting (oldest pending first by default)
+            query = parameters.SortBy?.ToLower() switch
+            {
+                "requesteddate" => parameters.SortDescending
+                    ? query.OrderByDescending(v => v.RequestedDate)
+                    : query.OrderBy(v => v.RequestedDate),
+                "elderlyname" => parameters.SortDescending
+                    ? query.OrderByDescending(v => v.Elderly.LastName)
+                    : query.OrderBy(v => v.Elderly.LastName),
+                _ => query.OrderBy(v => v.RequestedDate).ThenBy(v => v.RequestedTime)
+            };
+
+            var totalCount = await query.CountAsync();
+
+            var visits = await query
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            var visitDtos = _mapper.Map<List<VisitRequestDto>>(visits);
+
+            var paginatedResponse = new PaginatedResponse<List<VisitRequestDto>>(
+                visitDtos, parameters.PageNumber, parameters.PageSize, totalCount);
+
+            return new Response<PaginatedResponse<List<VisitRequestDto>>> (
+                paginatedResponse, "Pending visit requests retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting pending visit requests");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get detailed visit request information for approval
+    /// </summary>
+    public async Task<Response<VisitRequestDto>> GetVisitRequestDetailsAsync(int visitId)
+    {
+        try
+        {
+            _logger.LogInformation($"Getting visit request details for ID: {visitId}");
+
+            var visit = await _context.VisitRequests
+                .Include(v => v.FamilyMember)
+                .Include(v => v.Elderly)
+                .Include(v => v.ApprovedBy)
+                .FirstOrDefaultAsync(v => v.Id == visitId && !v.IsDeleted);
+
+            if (visit == null)
+            {
+                throw new NotFoundException($"Visit request with ID {visitId} not found");
+            }
+
+            // Get past visits from this family member
+            var pastVisits = await _context.VisitRequests
+                .Where(v => v.FamilyMemberId == visit.FamilyMemberId &&
+                           v.ElderlyId == visit.ElderlyId &&
+                           v.Id != visitId &&
+                           !v.IsDeleted)
+                .OrderByDescending(v => v.RequestedDate)
+                .Take(5)
+                .Select(v => new PastVisitDto
+                {
+                    VisitId = v.Id,
+                    VisitDate = v.RequestedDate,
+                    Status = v.Status.ToString(),
+                    Notes = v.Notes
+                })
+                .ToListAsync();
+
+            var visitDto = _mapper.Map<VisitRequestDto>(visit);
+
+            // Create detailed response
+            var detailsDto = new VisitRequestDetailsDto
+            {
+                Id = visitDto.Id,
+                FamilyMemberId = visitDto.FamilyMemberId,
+                FamilyMemberName = visitDto.FamilyMemberName,
+                ElderlyId = visitDto.ElderlyId,
+                ElderlyName = visitDto.ElderlyName,
+                RequestedDate = visitDto.RequestedDate,
+                RequestedTime = visitDto.RequestedTime,
+                DurationMinutes = visitDto.DurationMinutes,
+                Status = visitDto.Status,
+                Notes = visitDto.Notes,
+                CreatedAt = visitDto.CreatedAt,
+                FamilyMemberEmail = visit.FamilyMember?.Email ?? string.Empty,
+                FamilyMemberPhone = visit.FamilyMember?.PhoneNumber ?? string.Empty,
+                TotalVisitsByFamily = pastVisits.Count,
+                PastVisits = pastVisits
+            };
+
+            return new Response<VisitRequestDto>(detailsDto, "Visit request details retrieved successfully");
+        }
+        catch (Exception ex) when (ex is not NotFoundException)
+        {
+            _logger.LogError(ex, $"Error getting visit request details for {visitId}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Approve a visit request
+    /// </summary>
+    public async Task<Response<VisitRequestDto>> ApproveVisitRequestAsync(int teamLeaderId, ApproveVisitDto approveDto)
+    {
+        try
+        {
+            _logger.LogInformation($"Team leader {teamLeaderId} approving visit request {approveDto.VisitId}");
+
+            var visit = await _context.VisitRequests
+                .Include(v => v.FamilyMember)
+                .Include(v => v.Elderly)
+                .FirstOrDefaultAsync(v => v.Id == approveDto.VisitId && !v.IsDeleted);
+
+            if (visit == null)
+            {
+                throw new NotFoundException($"Visit request with ID {approveDto.VisitId} not found");
+            }
+
+            if (visit.Status != VisitStatus.Pending)
+            {
+                throw new ValidationException("Cannot approve non-pending visit",
+                    new Dictionary<string, string[]>
+                    {
+                    { "Status", new[] { $"Visit is already {visit.Status}" } }
+                    });
+            }
+
+            // Check if the requested date is in the past
+            if (visit.RequestedDate < DateTime.Today)
+            {
+                throw new ValidationException("Cannot approve past visit requests",
+                    new Dictionary<string, string[]>
+                    {
+                    { "RequestedDate", new[] { "Cannot approve a visit request for a past date" } }
+                    });
+            }
+
+            // Check for scheduling conflicts (optional - can be enhanced)
+            var conflictingVisits = await _context.VisitRequests
+                .AnyAsync(v => v.ElderlyId == visit.ElderlyId &&
+                              v.RequestedDate.Date == visit.RequestedDate.Date &&
+                              v.Status == VisitStatus.Approved &&
+                              v.Id != visit.Id &&
+                              !v.IsDeleted);
+
+            if (conflictingVisits)
+            {
+                throw new ValidationException("Scheduling conflict",
+                    new Dictionary<string, string[]>
+                    {
+                    { "Visit", new[] { "Another approved visit already exists for this elderly on this date" } }
+                    });
+            }
+
+            // Update visit status
+            visit.Status = VisitStatus.Approved;
+            visit.ApprovedById = teamLeaderId;
+            visit.ApprovedDate = DateTime.UtcNow;
+            visit.Notes = string.IsNullOrEmpty(approveDto.Comments)
+                ? visit.Notes
+                : (visit.Notes + " | Approval comments: " + approveDto.Comments);
+            visit.UpdatedAt = DateTime.UtcNow;
+            visit.UpdatedBy = teamLeaderId.ToString();
+
+            await _unitOfWork.CompleteAsync();
+
+            // Create notification for family member
+            await CreateNotificationForFamilyMember(
+                visit.FamilyMemberId,
+                "Visit Request Approved",
+                $"Your visit request for {visit.Elderly?.FirstName} {visit.Elderly?.LastName} on {visit.RequestedDate:yyyy-MM-dd} at {visit.RequestedTime} has been approved.",
+                NotificationType.VisitRequest,
+                visit.Id
+            );
+
+            // Create notification for employee (optional - to inform care staff)
+            await NotifyCareStaffAboutVisit(visit);
+
+            var visitDto = _mapper.Map<VisitRequestDto>(visit);
+
+            return new Response<VisitRequestDto>(visitDto, "Visit request approved successfully");
+        }
+        catch (Exception ex) when (ex is not NotFoundException && ex is not ValidationException)
+        {
+            _logger.LogError(ex, $"Error approving visit request {approveDto.VisitId}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Reject a visit request
+    /// </summary>
+    public async Task<Response<VisitRequestDto>> RejectVisitRequestAsync(int teamLeaderId, RejectVisitDto rejectDto)
+    {
+        try
+        {
+            _logger.LogInformation($"Team leader {teamLeaderId} rejecting visit request {rejectDto.VisitId}");
+
+            var visit = await _context.VisitRequests
+                .Include(v => v.FamilyMember)
+                .Include(v => v.Elderly)
+                .FirstOrDefaultAsync(v => v.Id == rejectDto.VisitId && !v.IsDeleted);
+
+            if (visit == null)
+            {
+                throw new NotFoundException($"Visit request with ID {rejectDto.VisitId} not found");
+            }
+
+            if (visit.Status != VisitStatus.Pending)
+            {
+                throw new ValidationException("Cannot reject non-pending visit",
+                    new Dictionary<string, string[]>
+                    {
+                    { "Status", new[] { $"Visit is already {visit.Status}" } }
+                    });
+            }
+
+            // Update visit status
+            visit.Status = VisitStatus.Rejected;
+            visit.ApprovedById = teamLeaderId;
+            visit.ApprovedDate = DateTime.UtcNow;
+            visit.RejectionReason = rejectDto.RejectionReason;
+            visit.UpdatedAt = DateTime.UtcNow;
+            visit.UpdatedBy = teamLeaderId.ToString();
+
+            await _unitOfWork.CompleteAsync();
+
+            // Create notification for family member
+            await CreateNotificationForFamilyMember(
+                visit.FamilyMemberId,
+                "Visit Request Rejected",
+                $"Your visit request for {visit.Elderly?.FirstName} {visit.Elderly?.LastName} on {visit.RequestedDate:yyyy-MM-dd} has been rejected. Reason: {rejectDto.RejectionReason}",
+                NotificationType.VisitRequest,
+                visit.Id
+            );
+
+            var visitDto = _mapper.Map<VisitRequestDto>(visit);
+
+            return new Response<VisitRequestDto>(visitDto, "Visit request rejected successfully");
+        }
+        catch (Exception ex) when (ex is not NotFoundException && ex is not ValidationException)
+        {
+            _logger.LogError(ex, $"Error rejecting visit request {rejectDto.VisitId}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get visit requests summary for team leader dashboard
+    /// </summary>
+    public async Task<Response<VisitSummaryDto>> GetVisitRequestsSummaryAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Getting visit requests summary");
+
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
+
+            var totalPending = await _context.VisitRequests
+                .CountAsync(v => v.Status == VisitStatus.Pending && !v.IsDeleted);
+
+            var approvedToday = await _context.VisitRequests
+                .CountAsync(v => v.Status == VisitStatus.Approved &&
+                                v.ApprovedDate.HasValue &&
+                                v.ApprovedDate.Value.Date == today &&
+                                !v.IsDeleted);
+
+            var rejectedToday = await _context.VisitRequests
+                .CountAsync(v => v.Status == VisitStatus.Rejected &&
+                                v.ApprovedDate.HasValue &&
+                                v.ApprovedDate.Value.Date == today &&
+                                !v.IsDeleted);
+
+            var upcomingVisits = await _context.VisitRequests
+                .CountAsync(v => v.Status == VisitStatus.Approved &&
+                                v.RequestedDate >= today &&
+                                !v.IsDeleted);
+
+            var recentRequests = await _context.VisitRequests
+                .Include(v => v.FamilyMember)
+                .Include(v => v.Elderly)
+                .Where(v => v.Status == VisitStatus.Pending && !v.IsDeleted)
+                .OrderBy(v => v.RequestedDate)
+                .Take(10)
+                .ToListAsync();
+
+            var summary = new VisitSummaryDto
+            {
+                TotalPending = totalPending,
+                ApprovedToday = approvedToday,
+                RejectedToday = rejectedToday,
+                UpcomingVisits = upcomingVisits,
+                RecentRequests = _mapper.Map<List<VisitRequestDto>>(recentRequests)
+            };
+
+            return new Response<VisitSummaryDto>(summary, "Visit summary retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting visit summary");
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region Private Helper Methods for Visit Management
+
+    /// <summary>
+    /// Create notification for family member
+    /// </summary>
+    private async Task CreateNotificationForFamilyMember(int familyMemberId, string title, string message, NotificationType type, int relatedEntityId)
+    {
+        try
+        {
+            var notification = new Notification
+            {
+                UserId = familyMemberId,
+                Title = title,
+                Message = message,
+                NotificationType = type,
+                RelatedEntityId = relatedEntityId,
+                RelatedEntityType = "VisitRequest",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+
+            await _unitOfWork.Repository<Notification>().AddAsync(notification);
+            await _unitOfWork.CompleteAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating notification for family member");
+        }
+    }
+
+    /// <summary>
+    /// Notify care staff about approved visit
+    /// </summary>
+    private async Task NotifyCareStaffAboutVisit(VisitRequest visit)
+    {
+        try
+        {
+            // Get primary employee for this elderly
+            var primaryAssignment = await _context.EmployeeElderlyAssignments
+                .Include(a => a.Employee)
+                .FirstOrDefaultAsync(a => a.ElderlyId == visit.ElderlyId &&
+                                         a.IsPrimary &&
+                                         !a.IsDeleted);
+
+            if (primaryAssignment?.Employee != null)
+            {
+                var notification = new Notification
+                {
+                    UserId = primaryAssignment.EmployeeId,
+                    Title = "Visit Scheduled",
+                    Message = $"A family visit has been scheduled for {visit.Elderly?.FirstName} {visit.Elderly?.LastName} on {visit.RequestedDate:yyyy-MM-dd} at {visit.RequestedTime}",
+                    NotificationType = NotificationType.VisitRequest,
+                    RelatedEntityId = visit.Id,
+                    RelatedEntityType = "VisitRequest",
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false
+                };
+
+                await _unitOfWork.Repository<Notification>().AddAsync(notification);
+                await _unitOfWork.CompleteAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error notifying care staff about visit");
+        }
     }
 
     #endregion

@@ -33,6 +33,9 @@ builder.Services.AddScoped<ITeamLeaderService, TeamLeaderService>();
 // Register Admin Service
 builder.Services.AddScoped<IAdminService, AdminService>();
 
+// Register Family Member Service
+builder.Services.AddScoped<IFamilyMemberService, FamilyMemberService>();
+
 // Register Identity
 builder.Services.AddIdentity<User, Role>(options =>
 {

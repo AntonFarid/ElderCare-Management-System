@@ -211,6 +211,14 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => VisitStatus.Pending))
             .ForMember(dest => dest.CreatedAt,
                 opt => opt.Ignore());
+
+        // VisitRequest to VisitRequestDetailsDto
+        CreateMap<VisitRequest, VisitRequestDetailsDto>()
+            .IncludeBase<VisitRequest, VisitRequestDto>();
+
+        CreateMap<VisitRequest, PastVisitDto>()
+            .ForMember(dest => dest.VisitDate, opt => opt.MapFrom(src => src.RequestedDate))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
     }
 
     private void CreateNotificationMappings()

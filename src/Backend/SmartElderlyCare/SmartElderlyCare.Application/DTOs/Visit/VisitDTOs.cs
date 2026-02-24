@@ -50,28 +50,6 @@ public class CreateVisitRequestDto
     public string? Notes { get; set; }
 }
 
-/// <summary>
-/// Approve visit DTO (team leader action)
-/// </summary>
-public class ApproveVisitDto
-{
-    [Required(ErrorMessage = "Visit ID is required")]
-    public int VisitId { get; set; }
-
-    public string? Comments { get; set; }
-}
-
-/// <summary>
-/// Reject visit DTO (team leader action)
-/// </summary>
-public class RejectVisitDto
-{
-    [Required(ErrorMessage = "Visit ID is required")]
-    public int VisitId { get; set; }
-
-    [Required(ErrorMessage = "Rejection reason is required")]
-    public string RejectionReason { get; set; } = string.Empty;
-}
 
 /// <summary>
 /// Future date validation attribute

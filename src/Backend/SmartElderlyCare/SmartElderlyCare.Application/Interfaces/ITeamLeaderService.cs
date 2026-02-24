@@ -1,14 +1,16 @@
-﻿using System;
+﻿using SmartElderlyCare.Application.DTOs.Common;
+using SmartElderlyCare.Application.DTOs.DailyReport;
+using SmartElderlyCare.Application.DTOs.Family;
+using SmartElderlyCare.Application.DTOs.Schedule;
+using SmartElderlyCare.Application.DTOs.TeamLeader;
+using SmartElderlyCare.Application.DTOs.User;
+using SmartElderlyCare.Application.DTOs.Visit;
+using SmartElderlyCare.Application.Wrappers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using SmartElderlyCare.Application.DTOs.Common;
-using SmartElderlyCare.Application.DTOs.DailyReport;
-using SmartElderlyCare.Application.DTOs.Schedule;
-using SmartElderlyCare.Application.DTOs.User;
-using SmartElderlyCare.Application.Wrappers;
-using SmartElderlyCare.Application.DTOs.TeamLeader;
 namespace SmartElderlyCare.Application.Interfaces;
 
 /// <summary>
@@ -46,4 +48,12 @@ public interface ITeamLeaderService
     Task<Response<bool>> DeleteScheduleAsync(int teamLeaderId, int scheduleId);
     Task<Response<List<WorkScheduleDto>>> GetSchedulesAsync(DateTime startDate, DateTime endDate, int? employeeId = null);
     Task<Response<ScheduleSummaryDto>> GetTodayScheduleSummaryAsync();
+
+
+    // Visit Request Management
+    Task<Response<PaginatedResponse<List<VisitRequestDto>>>> GetPendingVisitRequestsAsync(VisitFilterParameters parameters);
+    Task<Response<VisitRequestDto>> GetVisitRequestDetailsAsync(int visitId);
+    Task<Response<VisitRequestDto>> ApproveVisitRequestAsync(int teamLeaderId, ApproveVisitDto approveDto);
+    Task<Response<VisitRequestDto>> RejectVisitRequestAsync(int teamLeaderId, RejectVisitDto rejectDto);
+    Task<Response<VisitSummaryDto>> GetVisitRequestsSummaryAsync();
 }
