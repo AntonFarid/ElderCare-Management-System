@@ -1,11 +1,13 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SmartElderlyCare.Application.Common.Exceptions;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.DailyReport;
 using SmartElderlyCare.Application.DTOs.Elderly;
+using SmartElderlyCare.Application.DTOs.Gemini;
 using SmartElderlyCare.Application.DTOs.Schedule;
 using SmartElderlyCare.Application.DTOs.User;
 using SmartElderlyCare.Application.Interfaces;
@@ -14,12 +16,13 @@ using SmartElderlyCare.Domain.Entities;
 using SmartElderlyCare.Domain.Enums;
 using SmartElderlyCare.Domain.Interfaces;
 using SmartElderlyCare.Infrastructure.Data.Context;
+using System.Text;
 using System.Text.Json;
 
 namespace SmartElderlyCare.Infrastructure.Services;
 
 /// <summary>
-/// Employee service implementation
+/// Employee service implementation with AI integration
 /// </summary>
 public class EmployeeService : IEmployeeService
 {
@@ -29,6 +32,8 @@ public class EmployeeService : IEmployeeService
     private readonly UserManager<User> _userManager;
     private readonly ApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IGeminiService _geminiService;
+    private readonly IServiceProvider _serviceProvider;
 
     public EmployeeService(
         IUnitOfWork unitOfWork,
@@ -36,7 +41,9 @@ public class EmployeeService : IEmployeeService
         ILogger<EmployeeService> logger,
         UserManager<User> userManager,
         ApplicationDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IGeminiService geminiService,
+        IServiceProvider serviceProvider)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
@@ -44,6 +51,8 @@ public class EmployeeService : IEmployeeService
         _userManager = userManager;
         _context = context;
         _currentUserService = currentUserService;
+        _geminiService = geminiService;
+        _serviceProvider = serviceProvider;
     }
 
     #region Profile Management
@@ -203,7 +212,7 @@ public class EmployeeService : IEmployeeService
     #region Daily Reports
 
     /// <summary>
-    /// Create a new daily report
+    /// Create a new daily report with AI-generated content
     /// </summary>
     public async Task<Response<DailyReportDto>> CreateDailyReportAsync(int employeeId, CreateDailyReportDto createDto)
     {
@@ -236,6 +245,10 @@ public class EmployeeService : IEmployeeService
                     });
             }
 
+            // Get elderly name for AI
+            var elderly = await _context.Elderlies
+                .FirstOrDefaultAsync(e => e.Id == createDto.ElderlyId);
+
             // Map DTO to entity
             var report = _mapper.Map<DailyReport>(createDto);
             report.EmployeeId = employeeId;
@@ -255,14 +268,17 @@ public class EmployeeService : IEmployeeService
                 SubmittedAt = DateTime.UtcNow
             });
 
+            // Set a temporary placeholder (will be replaced by AI)
+            report.AiGeneratedReport = "AI report generation in progress...";
+
             // Add report
             await _unitOfWork.Repository<DailyReport>().AddAsync(report);
             await _unitOfWork.CompleteAsync();
 
-            // TODO: Trigger AI report generation (will be implemented in next phase)
-            // For now, set a placeholder AI report
-            report.AiGeneratedReport = "AI report generation pending...";
-            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation($"Report {report.Id} saved, now triggering AI generation in background");
+
+            // TRIGGER AI REPORT GENERATION IN BACKGROUND
+            _ = Task.Run(async () => await GenerateAIReportAsync(report.Id, employeeId, createDto, elderly));
 
             // Load related data for response
             var savedReport = await _context.DailyReports
@@ -287,6 +303,154 @@ public class EmployeeService : IEmployeeService
             _logger.LogError(ex, $"Error creating daily report for employee {employeeId}");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Background task to generate AI report
+    /// </summary>
+    private async Task GenerateAIReportAsync(int reportId, int employeeId, CreateDailyReportDto createDto, Elderly? elderly)
+    {
+        try
+        {
+            _logger.LogInformation($"Starting AI report generation for report {reportId}");
+
+            // Create a new scope for the background task
+            using var scope = _serviceProvider.CreateScope();
+            var geminiService = scope.ServiceProvider.GetRequiredService<IGeminiService>();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // Prepare AI request
+            var aiRequest = new ReportGenerationRequest
+            {
+                EmployeeId = employeeId,
+                ElderlyId = createDto.ElderlyId,
+                ElderlyName = elderly != null ? $"{elderly.FirstName} {elderly.LastName}" : "Resident",
+                ReportDate = createDto.ReportDate,
+                HealthMetrics = createDto.HealthMetrics.Select(m => new HealthMetricInput
+                {
+                    MetricType = m.MetricType,
+                    MetricName = m.MetricName,
+                    MetricValue = m.MetricValue,
+                    Unit = m.Unit,
+                    Notes = m.Notes,
+                    RecordedTime = m.RecordedTime
+                }).ToList(),
+                AdditionalNotes = createDto.AdditionalNotes
+            };
+
+            // Call Gemini AI
+            var aiResponse = await geminiService.GenerateDailyReportAsync(aiRequest);
+
+            // Update the report with AI-generated content
+            var report = await context.DailyReports.FindAsync(reportId);
+            if (report != null)
+            {
+                if (aiResponse.Succeeded && !string.IsNullOrEmpty(aiResponse.Data))
+                {
+                    report.AiGeneratedReport = aiResponse.Data;
+                    _logger.LogInformation($"AI report successfully generated for report {reportId}");
+                }
+                else
+                {
+                    _logger.LogWarning($"AI report generation failed for report {reportId}, using fallback");
+                    report.AiGeneratedReport = GenerateFallbackAITemplate(createDto, elderly);
+                }
+
+                await context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error in background AI generation for report {reportId}");
+
+            // Even if AI fails, we should still have a fallback
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var report = await context.DailyReports.FindAsync(reportId);
+                if (report != null && (string.IsNullOrEmpty(report.AiGeneratedReport) ||
+                                       report.AiGeneratedReport == "AI report generation in progress..."))
+                {
+                    report.AiGeneratedReport = GenerateFallbackAITemplate(createDto, elderly);
+                    await context.SaveChangesAsync();
+                }
+            }
+            catch (Exception fallbackEx)
+            {
+                _logger.LogError(fallbackEx, $"Error setting fallback for report {reportId}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Generate a simple fallback template if AI is unavailable
+    /// </summary>
+    private string GenerateFallbackAITemplate(CreateDailyReportDto createDto, Elderly? elderly)
+    {
+        var sb = new StringBuilder();
+        var elderlyName = elderly != null ? $"{elderly.FirstName} {elderly.LastName}" : "Resident";
+
+        sb.AppendLine("DAILY CARE REPORT");
+        sb.AppendLine("=================");
+        sb.AppendLine();
+        sb.AppendLine($"Resident: {elderlyName}");
+        sb.AppendLine($"Date: {createDto.ReportDate:MMMM d, yyyy}");
+        sb.AppendLine();
+        sb.AppendLine("SUMMARY");
+        sb.AppendLine("-------");
+
+        var meals = createDto.HealthMetrics.Where(m => m.MetricType == "Meal").ToList();
+        var medications = createDto.HealthMetrics.Where(m => m.MetricType == "Medication").ToList();
+        var activities = createDto.HealthMetrics.Where(m => m.MetricType == "Activity").ToList();
+        var mood = createDto.HealthMetrics.FirstOrDefault(m => m.MetricType == "Mood");
+
+        if (mood != null)
+        {
+            sb.AppendLine($"Mood: {mood.MetricValue}");
+        }
+
+        if (meals.Any())
+        {
+            sb.AppendLine();
+            sb.AppendLine("MEALS");
+            foreach (var meal in meals)
+            {
+                sb.AppendLine($"- {meal.MetricName}: {meal.MetricValue} at {meal.RecordedTime:hh\\:mm}");
+            }
+        }
+
+        if (medications.Any())
+        {
+            sb.AppendLine();
+            sb.AppendLine("MEDICATIONS");
+            foreach (var med in medications)
+            {
+                sb.AppendLine($"- {med.MetricName}: {med.MetricValue} at {med.RecordedTime:hh\\:mm}");
+            }
+        }
+
+        if (activities.Any())
+        {
+            sb.AppendLine();
+            sb.AppendLine("ACTIVITIES");
+            foreach (var activity in activities)
+            {
+                sb.AppendLine($"- {activity.MetricName}: {activity.MetricValue} {activity.Unit} at {activity.RecordedTime:hh\\:mm}");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(createDto.AdditionalNotes))
+        {
+            sb.AppendLine();
+            sb.AppendLine("ADDITIONAL NOTES");
+            sb.AppendLine(createDto.AdditionalNotes);
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Note: This is a system-generated template report.");
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -316,6 +480,10 @@ public class EmployeeService : IEmployeeService
                     });
             }
 
+            // Get elderly for AI
+            var elderly = await _context.Elderlies
+                .FirstOrDefaultAsync(e => e.Id == updateDto.ElderlyId);
+
             // Remove existing health metrics
             _context.HealthMetrics.RemoveRange(report.HealthMetrics);
 
@@ -333,6 +501,9 @@ public class EmployeeService : IEmployeeService
                 UpdatedAt = DateTime.UtcNow
             });
 
+            // Reset AI generation status
+            report.AiGeneratedReport = "AI report generation in progress...";
+
             // Add new health metrics
             foreach (var metricDto in updateDto.HealthMetrics)
             {
@@ -343,6 +514,9 @@ public class EmployeeService : IEmployeeService
 
             await _context.SaveChangesAsync();
 
+            // Trigger AI generation again for updated data
+            _ = Task.Run(async () => await GenerateAIReportAsync(reportId, employeeId, updateDto, elderly));
+
             // Reload the report
             var updatedReport = await _context.DailyReports
                 .Include(r => r.Employee)
@@ -352,7 +526,7 @@ public class EmployeeService : IEmployeeService
 
             var reportDto = _mapper.Map<DailyReportDto>(updatedReport);
 
-            return new Response<DailyReportDto>(reportDto, "Daily report updated successfully");
+            return new Response<DailyReportDto>(reportDto, "Daily report updated successfully, AI generation in progress");
         }
         catch (Exception ex) when (ex is not NotFoundException && ex is not ValidationException)
         {

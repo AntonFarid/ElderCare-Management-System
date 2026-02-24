@@ -36,6 +36,12 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 // Register Family Member Service
 builder.Services.AddScoped<IFamilyMemberService, FamilyMemberService>();
 
+// Add Gemini Settings
+builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("GeminiSettings"));
+
+// Register Gemini Service (no BaseAddress needed)
+builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+
 // Register Identity
 builder.Services.AddIdentity<User, Role>(options =>
 {
