@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SmartElderlyCare.Domain.Entities;
@@ -33,6 +28,9 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
     public DbSet<VisitRequest> VisitRequests { get; set; }
     public DbSet<Notification> Notifications { get; set; }
 
+    // Add AuditLog DbSet
+    public DbSet<AuditLog> AuditLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -44,7 +42,12 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
         builder.Entity<User>().HasQueryFilter(e => !e.IsDeleted);
         builder.Entity<Elderly>().HasQueryFilter(e => !e.IsDeleted);
         builder.Entity<DailyReport>().HasQueryFilter(e => !e.IsDeleted);
-        // Add filters for other entities as needed
+        builder.Entity<EmployeeElderlyAssignment>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<ElderlyFamilyMember>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<WorkSchedule>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<VisitRequest>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<Notification>().HasQueryFilter(e => !e.IsDeleted);
+        // AuditLogs are not soft deleted - they are permanent records
 
         // Configure Identity tables with custom names
         builder.Entity<User>(entity =>
@@ -83,6 +86,29 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
         builder.Entity<IdentityUserToken<int>>(entity =>
         {
             entity.ToTable("UserTokens");
+        });
+
+        // Configure AuditLog
+        builder.Entity<AuditLog>(entity =>
+        {
+            entity.ToTable("AuditLogs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EntityName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Timestamp).IsRequired();
+
+            // Relationship with User (optional)
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes for faster queries
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.EntityName);
+            entity.HasIndex(e => e.EntityId);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Action);
         });
 
         // Configure relationships and constraints
@@ -201,6 +227,11 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
         builder.Entity<User>().HasIndex(u => u.IsDeleted);
         builder.Entity<Elderly>().HasIndex(e => e.IsDeleted);
         builder.Entity<DailyReport>().HasIndex(d => d.IsDeleted);
+        builder.Entity<EmployeeElderlyAssignment>().HasIndex(e => e.IsDeleted);
+        builder.Entity<ElderlyFamilyMember>().HasIndex(e => e.IsDeleted);
+        builder.Entity<WorkSchedule>().HasIndex(w => w.IsDeleted);
+        builder.Entity<VisitRequest>().HasIndex(v => v.IsDeleted);
+        builder.Entity<Notification>().HasIndex(n => n.IsDeleted);
 
         // Unique constraints
         builder.Entity<User>().HasIndex(u => u.Email).IsUnique();
@@ -208,7 +239,7 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Automatically set audit fields
+        // Automatically set audit fields on BaseEntity (CreatedAt/UpdatedAt)
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
             switch (entry.State)
@@ -222,17 +253,17 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
             }
         }
 
+        // Set audit user fields for IAuditableEntity (CreatedBy/UpdatedBy) from context if available.
+        // Do NOT set CreatedAt/UpdatedAt here because IAuditableEntity does not declare those properties.
         foreach (var entry in ChangeTracker.Entries<IAuditableEntity>())
         {
             switch (entry.State)
             {
                 case EntityState.Added:
-                    // CreatedBy should be set from context (e.g., current user)
-                    entry.Entity.CreatedBy = "System";
+                    // entry.Entity.CreatedBy = currentUserId; // set from your auth/context
                     break;
                 case EntityState.Modified:
-                    // UpdatedBy should be set from context (e.g., current user)
-                    entry.Entity.UpdatedBy = "System";
+                    // entry.Entity.UpdatedBy = currentUserId; // set from your auth/context
                     break;
             }
         }

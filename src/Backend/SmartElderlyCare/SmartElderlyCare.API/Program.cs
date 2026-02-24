@@ -30,6 +30,9 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 // Register Team Leader Service
 builder.Services.AddScoped<ITeamLeaderService, TeamLeaderService>();
 
+// Register Admin Service
+builder.Services.AddScoped<IAdminService, AdminService>();
+
 // Register Identity
 builder.Services.AddIdentity<User, Role>(options =>
 {
