@@ -49,3 +49,36 @@ public class NotificationSummaryDto
     public int TotalUnread { get; set; }
     public List<NotificationDto> RecentNotifications { get; set; } = new();
 }
+
+/// <summary>
+/// Real-time notification DTO for SignalR
+/// </summary>
+public class RealTimeNotificationDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string Severity { get; set; } = "Info";
+    public DateTime Timestamp { get; set; }
+    public bool IsRead { get; set; }
+    public Dictionary<string, object>? Data { get; set; }
+}
+/// <summary>
+/// SignalR connection status DTO
+/// </summary>
+public class ConnectionStatusDto
+{
+    public string UserId { get; set; } = string.Empty;
+    public bool IsOnline { get; set; }
+    public DateTime? LastSeen { get; set; }
+}
+
+/// <summary>
+/// Unread count update DTO
+/// </summary>
+public class UnreadCountDto
+{
+    public int UserId { get; set; }
+    public int UnreadCount { get; set; }
+}

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SmartElderlyCare.API.Extensions;
+using SmartElderlyCare.API.Hubs;
 using SmartElderlyCare.API.Middleware;
 using SmartElderlyCare.Application.Common.Settings;
 using SmartElderlyCare.Application.Interfaces;
@@ -41,6 +42,15 @@ builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gem
 
 // Register Gemini Service (no BaseAddress needed)
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
+
+// Register hub context
+builder.Services.AddScoped<INotificationHubContext, NotificationHubContext>();
+
+// Register notification service
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Register Identity
 builder.Services.AddIdentity<User, Role>(options =>
@@ -100,7 +110,9 @@ app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// CORRECT WAY: Use MapControllers and MapHub directly on app (NO UseEndpoints)
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 // Seed database
 using (var scope = app.Services.CreateScope())
