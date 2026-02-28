@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@plugin './hero.js';
+@source '../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+    button {
+        @apply cursor-pointer;
+    }
+
+    h1 {
+        @apply font-bold text-4xl;
+    }
+
+    h2 {
+        @apply font-bold text-3xl;
+    }
+
+    h3 {
+        @apply font-bold text-2xl;
+    }
+
+    h4 {
+        @apply font-bold text-xl;
+    }
+
+    h5 {
+        @apply font-semibold text-medium;
+    }
+
+    h6 {
+        @apply font-semibold text-sm;
+    }
+
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
