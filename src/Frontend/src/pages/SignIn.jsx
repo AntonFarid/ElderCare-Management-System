@@ -11,6 +11,7 @@ import { addToast, ToastProvider } from "@heroui/toast";
 import { HeartHandshake } from 'lucide-react';
 import { useContext } from "react";
 import { AuthContext } from "../contexts/AuthContext";
+import { apiServices } from "../services/AuthApi";
 
 
 export default function SignIn() {
@@ -18,10 +19,10 @@ export default function SignIn() {
   const toggleVisibility = () => setIsVisible(!isVisible);
   const [isLoading, setIsLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+
   const navigate = useNavigate();
   const { setUserToken } = useContext(AuthContext)
-
-
 
   const { handleSubmit, register, formState: { errors } } = useForm({
     resolver: zodResolver(signInSchema),
@@ -34,13 +35,12 @@ export default function SignIn() {
     try {
       console.log("Data being sent:", loginData);
 
-      const response = await axios.post(
-        "",
-        loginData
-      );
+      const response = await apiServices.signIn(loginData);
+      const { token, userType } = response.data.data;
 
-      setUserToken(response.data.token)
-      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("token", token);
+      apiServices.setToken(token);
+      setUserToken(token);
 
       addToast({
         title: "Welcome Back!",
@@ -48,7 +48,16 @@ export default function SignIn() {
         color: "success",
       });
 
-      // navigate("/Home");
+      // Role-based redirection
+      if (userType === "Admin") {
+        navigate("/admin/dashboard");
+      } else if (userType === "FamilyMember") {
+        navigate("/family/home");
+      } else if (userType === "Employee" || userType === "TeamLeader") {
+        navigate("/employee/dashboard");
+      } else {
+        navigate("/");
+      }
 
     } catch (error) {
       if (error.response) {

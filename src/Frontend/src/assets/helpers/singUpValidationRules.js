@@ -38,13 +38,9 @@ export const signUpSchema = z.object({
             { message: "You must be at least 18 years old" }
         ),
 
-    gender: z.string()
-        .min(1, "Your Gender is required")
-        .refine((gender) => gender === "male" || gender === "female", {
-            message: "Gender must be either Male or Female",
-        }),
 
 
 }).refine((data) => data.password === data.rePassword, {
     message: "Passwords do not match",
-    path: ["rePassword"]});
+    path: ["rePassword"]
+});

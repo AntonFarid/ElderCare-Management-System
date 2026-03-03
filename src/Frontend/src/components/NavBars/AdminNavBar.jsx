@@ -14,6 +14,7 @@ export default function AdminNavbar() {
     const navigationItems = [
         { name: 'Dashboard', path: '/admin/dashboard' },
         { name: 'Users Management', path: '/admin/users' },
+        { name: 'Elders Management', path: '/admin/elders' },
         { name: 'Profile', path: '/admin/profile' },
         { name: 'Reports', path: '/admin/reports' },
     ];
@@ -50,8 +51,8 @@ export default function AdminNavbar() {
                                     key={item.path}
                                     to={item.path}
                                     className={`text-sm font-medium transition-colors ${active
-                                            ? 'text-blue-600'
-                                            : 'text-gray-600 hover:text-blue-600'
+                                        ? 'text-blue-600'
+                                        : 'text-gray-600 hover:text-blue-600'
                                         }`}
                                 >
                                     {item.name}

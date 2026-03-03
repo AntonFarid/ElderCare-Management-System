@@ -21,21 +21,19 @@ export default function SignUp() {
   const [errMsg, setErrMsg] = useState("");
   const navigate = useNavigate();
 
+
   const { handleSubmit, register, formState: { errors } } = useForm({
     resolver: zodResolver(signUpSchema),
   });
 
-  async function signUp(registerData) {
+  async function familySignUp(registerData) {
     setIsLoading(true);
     setErrMsg("");
 
     try {
       console.log("Data being sent:", registerData);
 
-      const response = await axios.post(
-        "",
-        registerData
-      );
+      const response = await apiServices.familySignUp(registerData);
       console.log("Success:", response.data);
 
       addToast({
@@ -64,9 +62,9 @@ export default function SignUp() {
       type,
       isInvalid: !!field,
       errorMessage: field?.message,
+
     };
   }
-
   return (
     <>
       <div className="min-h-screen grid md:grid-cols-2">
@@ -121,7 +119,7 @@ export default function SignUp() {
         <div className="flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-8">
 
           <form
-            onSubmit={handleSubmit(signUp)}
+            onSubmit={handleSubmit(familySignUp)}
             className="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl space-y-5"
           >
             <div>
@@ -140,29 +138,19 @@ export default function SignUp() {
             )}
 
             <Input
-              {...register("name")}
-              {...getInputProps("Full Name", "text", errors.name)}
+              {...register("firstName")}
+              {...getInputProps("First Name", "text", errors.firstName)}
+            />
+
+            <Input
+              {...register("lastName")}
+              {...getInputProps("Last Name", "text", errors.lastName)}
             />
 
             <Input
               {...register("email")}
               {...getInputProps("Email Address", "email", errors.email)}
             />
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                {...register("dateOfBirth")}
-                {...getInputProps("Date of Birth", "date", errors.dateOfBirth)}
-              />
-
-              <Select
-                {...register("gender")}
-                {...getInputProps("Gender", undefined, errors.gender)}
-              >
-                <SelectItem key="male">Male</SelectItem>
-                <SelectItem key="female">Female</SelectItem>
-              </Select>
-            </div>
 
             <Input
               {...register("password")}
@@ -180,6 +168,27 @@ export default function SignUp() {
               {...getInputProps("Confirm Password", "password", errors.rePassword)}
               type={isVisible ? "text" : "password"}
             />
+
+            <Input
+              {...register("phoneNumber")}
+              {...getInputProps("Phone Number", "number", errors.phoneNumber)}
+            />
+
+            <Select
+              {...register("relationship")}
+              {...getInputProps("Relationship", undefined, errors.relationship)}
+            >
+              <SelectItem key="son">Son</SelectItem>
+              <SelectItem key="daughter">Daughter</SelectItem>
+              <SelectItem key="grandson">Grandson</SelectItem>
+              <SelectItem key="granddaughter">Granddaughter</SelectItem>
+              <SelectItem key="other">Other</SelectItem>
+            </Select>
+            <Input
+              {...register("familyCode")}
+              {...getInputProps("Family Access Code", "text", errors.familyCode)}
+            />
+
 
             <Button
               isLoading={isLoading}

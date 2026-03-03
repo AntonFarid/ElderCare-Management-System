@@ -15,6 +15,16 @@ using SmartElderlyCare.Infrastructure.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
 
 // Register Repository Layer
 builder.Services.AddRepositoryLayer(builder.Configuration);
@@ -93,6 +103,7 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwt();
 
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -106,6 +117,8 @@ app.UseHttpsRedirection();
 
 // Add global exception handling middleware
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
