@@ -9,7 +9,7 @@ import {
 } from "@heroui/react";
 import { TriangleAlertIcon } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { adminApiServices } from "../../services/AdminApi";
+import { usersApiServices } from "../../../services/Admin/UsersApi";
 import { addToast } from "@heroui/toast";
 
 /**
@@ -24,7 +24,7 @@ import { addToast } from "@heroui/toast";
 export default function DeleteUserModal({ isOpen, onClose, user, onDeleted }) {
 
     const { mutate: deleteUser, isPending } = useMutation({
-        mutationFn: () => adminApiServices.deleteUser(user.id),
+        mutationFn: () => usersApiServices.deleteUser(user.id),
         onSuccess: () => {
             addToast({
                 title: "User deleted",

@@ -510,7 +510,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetActivitySummary([FromQuery] DateTime? date)
     {
-        var targetDate = date ?? DateTime.Today;
+        var targetDate = date ?? DateTime.UtcNow.Date;
         var response = await _adminService.GetActivitySummaryAsync(targetDate);
         return Ok(response);
     }

@@ -1,4 +1,5 @@
 ﻿using SmartElderlyCare.Application.Wrappers;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
@@ -49,7 +50,12 @@ public class GlobalExceptionHandlingMiddleware
             case Application.Common.Exceptions.ValidationException validationException:
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
                 responseWrapper.Message = "Validation failed.";
-                responseWrapper.Errors = (List<string>?)validationException.Errors;
+                responseWrapper.Errors = validationException.Errors switch
+                {
+                    List<string> list => list,
+                    IDictionary<string, string[]> dict => dict.SelectMany(kvp => kvp.Value).ToList(),
+                    _ => new List<string> { validationException.Message }
+                };
                 break;
 
             case Application.Common.Exceptions.NotFoundException notFoundException:

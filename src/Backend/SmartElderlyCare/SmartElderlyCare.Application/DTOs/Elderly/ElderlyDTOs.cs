@@ -56,6 +56,9 @@ public class EmployeeAssignmentDto
     public int EmployeeId { get; set; }
     public string EmployeeName { get; set; } = string.Empty;
     public string EmployeeEmail { get; set; } = string.Empty;
+    public int ElderlyId { get; set; }
+    public string ElderlyName { get; set; } = string.Empty;
+    public string RoomNumber { get; set; } = string.Empty;
     public DateTime AssignedDate { get; set; }
     public bool IsPrimary { get; set; }
 }

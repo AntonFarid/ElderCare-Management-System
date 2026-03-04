@@ -85,7 +85,13 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.EmployeeName,
                 opt => opt.MapFrom(src => $"{src.Employee.FirstName} {src.Employee.LastName}"))
             .ForMember(dest => dest.EmployeeEmail,
-                opt => opt.MapFrom(src => src.Employee.Email));
+                opt => opt.MapFrom(src => src.Employee.Email))
+            .ForMember(dest => dest.ElderlyId,
+                opt => opt.MapFrom(src => src.ElderlyId))
+            .ForMember(dest => dest.ElderlyName,
+                opt => opt.MapFrom(src => $"{src.Elderly.FirstName} {src.Elderly.LastName}"))
+            .ForMember(dest => dest.RoomNumber,
+                opt => opt.MapFrom(src => src.Elderly.RoomNumber));
 
         // ElderlyFamilyMember to FamilyLinkDto
         CreateMap<ElderlyFamilyMember, FamilyLinkDto>()

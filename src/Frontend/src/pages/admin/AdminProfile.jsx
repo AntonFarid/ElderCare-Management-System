@@ -26,7 +26,7 @@ import {
     BadgeCheckIcon,
     PencilIcon,
 } from "lucide-react";
-import { adminApiServices } from "../../services/AdminApi";
+import { usersApiServices } from "../../services/Admin/UsersApi";
 import { addToast } from "@heroui/toast";
 import { useForm } from "react-hook-form";
 
@@ -83,7 +83,7 @@ export default function AdminProfile() {
     const fetchProfile = async () => {
         setIsLoading(true);
         try {
-            const response = await adminApiServices.getAdminProfile();
+            const response = await usersApiServices.getAdminProfile();
             setProfile(response.data.data);
         } catch (error) {
             console.error("Error fetching admin profile:", error);
@@ -117,7 +117,7 @@ export default function AdminProfile() {
                 isActive: profile?.isActive ?? true,
                 roles: profile?.roles ?? [],
             };
-            await adminApiServices.updateAdminProfile(payload);
+            await usersApiServices.updateAdminProfile(payload);
             addToast({
                 title: "Success",
                 description: "Profile updated successfully",

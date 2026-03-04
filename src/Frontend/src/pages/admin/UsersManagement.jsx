@@ -15,23 +15,16 @@ import {
     DropdownItem,
     Chip,
     User,
-    Pagination,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
     useDisclosure,
-    Select,
-    SelectItem
 } from "@heroui/react";
 import { Plus, Search, MoreVertical } from "lucide-react";
-import { adminApiServices } from "../../services/AdminApi";
+import { usersApiServices } from "../../services/Admin/UsersApi";
 import { addToast } from "@heroui/toast";
-import DeleteUserModal from "../../components/admin/DeleteUserModal";
-import EditUserModal from "../../components/admin/EditUserModal";
-import { useForm } from "react-hook-form";
+import DeleteUserModal from "../../components/Admin/Users/DeleteUserModal";
+import EditUserModal from "../../components/Admin/Users/EditUserModal";
+import CreateUserModal from "../../components/Admin/Users/CreateUserModal";
 import { useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
@@ -87,7 +80,7 @@ export default function UsersManagement() {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const response = await adminApiServices.getAllUsers();
+            const response = await usersApiServices.getAllUsers();
             setUsers(response.data.data.data || []);
         } catch (error) {
             console.error("Error fetching users:", error);
@@ -105,7 +98,7 @@ export default function UsersManagement() {
         setIsSubmitting(true);
         try {
             const { confirmPassword, ...payload } = data;
-            await adminApiServices.createUser(payload);
+            await usersApiServices.createUser(payload);
             addToast({
                 title: "Success",
                 description: "User created successfully",
@@ -141,9 +134,10 @@ export default function UsersManagement() {
                     </User>
                 );
             case "role":
+                const userRole = user.roles?.[0] ?? user.userType;
                 return (
-                    <Chip className="capitalize" color={statusColorMap[user.userType]} size="sm" variant="flat">
-                        {user.userType}
+                    <Chip className="capitalize" color={statusColorMap[userRole]} size="sm" variant="flat">
+                        {userRole}
                     </Chip>
                 );
             case "phone":
@@ -170,7 +164,6 @@ export default function UsersManagement() {
                                 </Button>
                             </DropdownTrigger>
                             <DropdownMenu>
-                                <DropdownItem onPress={() => setUserToEdit(user)}>Edit User</DropdownItem>
                                 <DropdownItem
                                     color="danger"
                                     onPress={() => setUserToDelete(user)}
@@ -230,105 +223,12 @@ export default function UsersManagement() {
                 </TableBody>
             </Table>
 
-            <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl" scrollBehavior="inside">
-                <ModalContent>
-                    {(onClose) => (
-                        <form onSubmit={handleSubmit(onSubmit)}>
-                            <ModalHeader className="flex flex-col gap-1">Create New User</ModalHeader>
-                            <ModalBody>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input
-                                        label="First Name"
-                                        placeholder="Enter first name"
-                                        variant="bordered"
-                                        {...register("firstName")}
-                                        isInvalid={!!errors.firstName}
-                                        errorMessage={errors.firstName?.message}
-                                    />
-                                    <Input
-                                        label="Last Name"
-                                        placeholder="Enter last name"
-                                        variant="bordered"
-                                        {...register("lastName")}
-                                        isInvalid={!!errors.lastName}
-                                        errorMessage={errors.lastName?.message}
-                                    />
-                                    <Input
-                                        label="Email"
-                                        placeholder="Enter email"
-                                        variant="bordered"
-                                        {...register("email")}
-                                        isInvalid={!!errors.email}
-                                        errorMessage={errors.email?.message}
-                                    />
-                                    <Input
-                                        label="Phone Number"
-                                        placeholder="Enter phone number"
-                                        variant="bordered"
-                                        {...register("phoneNumber")}
-                                        isInvalid={!!errors.phoneNumber}
-                                        errorMessage={errors.phoneNumber?.message}
-                                    />
-                                    <Input
-                                        label="Password"
-                                        placeholder="Enter password"
-                                        type="password"
-                                        variant="bordered"
-                                        {...register("password")}
-                                        isInvalid={!!errors.password}
-                                        errorMessage={errors.password?.message}
-                                    />
-                                    <Input
-                                        label="Confirm Password"
-                                        placeholder="Confirm password"
-                                        type="password"
-                                        variant="bordered"
-                                        {...register("confirmPassword")}
-                                        isInvalid={!!errors.confirmPassword}
-                                        errorMessage={errors.confirmPassword?.message}
-                                    />
-                                    <Select
-                                        label="User Type"
-                                        placeholder="Select type"
-                                        variant="bordered"
-                                        {...register("userType")}
-                                        isInvalid={!!errors.userType}
-                                        errorMessage={errors.userType?.message}
-                                    >
-                                        <SelectItem key="admin" value="Admin">Admin</SelectItem>
-                                        <SelectItem key="employee" value="Employee">Employee</SelectItem>
-                                        <SelectItem key="familyMember" value="FamilyMember">Family Member</SelectItem>
-                                        <SelectItem key="teamLeader" value="TeamLeader">Team Leader</SelectItem>
-                                    </Select>
-                                    <Select
-                                        label="Roles"
-                                        placeholder="Select role"
-                                        variant="bordered"
-                                        selectionMode="single"
-                                        {...register("roles")}
-                                        isInvalid={!!errors.roles}
-                                        errorMessage={errors.roles?.message}
-                                        defaultSelectedKeys={["familyMember"]}
-                                    >
-                                        <SelectItem key="admin" value="Admin">Admin</SelectItem>
-                                        <SelectItem key="familyMember" value="Family Member">Family Member</SelectItem>
-                                        <SelectItem key="employee" value="Employee">Employee</SelectItem>
-                                        <SelectItem key="teamLeader" value="Team Leader">Team Leader</SelectItem>
-                                    </Select>
-                                </div>
-                            </ModalBody>
-                            <ModalFooter>
-                                <Button color="danger" variant="flat" onPress={onClose}>
-                                    Cancel
-                                </Button>
-                                <Button color="primary" type="submit" isLoading={isSubmitting}>
-                                    Create User
-                                </Button>
-                            </ModalFooter>
-                        </form>
-                    )}
-                </ModalContent>
-            </Modal>
+            <CreateUserModal
+                isOpen={isOpen}
+                onOpenChange={onOpenChange}
+                onClose={onClose}
+                onCreated={fetchUsers}
+            />
 
             {/* Delete User Modal */}
             <DeleteUserModal

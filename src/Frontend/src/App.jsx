@@ -20,6 +20,8 @@ import UserDetails from './pages/admin/UserDetails';
 import AdminProfile from './pages/admin/AdminProfile';
 import AdminReports from './pages/admin/Reports';
 import EldersManagement from './pages/admin/EldersManagement';
+import ElderDetails from './pages/admin/ElderDetails';
+import AdminStatistics from './pages/admin/AdminStatistics';
 // Employee Pages
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
 import EmployeeResidents from './pages/employee/Residents';
@@ -75,8 +77,10 @@ const router = createBrowserRouter([
       { path: 'users', element: <ProtectedRoutes><UsersManagement /></ProtectedRoutes> },
       { path: 'users/:id', element: <ProtectedRoutes><UserDetails /></ProtectedRoutes> },
       { path: 'elders', element: <ProtectedRoutes><EldersManagement /></ProtectedRoutes> },
+      { path: 'elders/:id', element: <ProtectedRoutes><ElderDetails /></ProtectedRoutes> },
       { path: 'profile', element: <ProtectedRoutes><AdminProfile /></ProtectedRoutes> },
       { path: 'reports', element: <ProtectedRoutes><AdminReports /></ProtectedRoutes> },
+      { path: 'statistics', element: <ProtectedRoutes><AdminStatistics /></ProtectedRoutes> },
     ]
   },
   // Employee Routes

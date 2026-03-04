@@ -1175,7 +1175,7 @@ public class AdminService : IAdminService
                 throw new NotFoundException($"Elderly with ID {elderlyId} not found");
             }
 
-            // Check if assignment already exists
+            // Check if assignment already exists (active)
             var existingAssignment = await _context.EmployeeElderlyAssignments
                 .FirstOrDefaultAsync(a => a.EmployeeId == employeeId && a.ElderlyId == elderlyId && !a.IsDeleted);
 
@@ -1200,6 +1200,34 @@ public class AdminService : IAdminService
                     pa.IsPrimary = false;
                     pa.UpdatedAt = DateTime.UtcNow;
                 }
+            }
+
+            // Check if a soft-deleted assignment exists (same composite PK) and reactivate it
+            var deletedAssignment = await _context.EmployeeElderlyAssignments
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.EmployeeId == employeeId && a.ElderlyId == elderlyId && a.IsDeleted);
+
+            if (deletedAssignment != null)
+            {
+                // Reactivate the soft-deleted record
+                deletedAssignment.IsDeleted = false;
+                deletedAssignment.DeletedAt = null;
+                deletedAssignment.IsPrimary = isPrimary;
+                deletedAssignment.AssignedDate = DateTime.UtcNow;
+                deletedAssignment.UpdatedAt = DateTime.UtcNow;
+                deletedAssignment.UpdatedBy = _currentUserService.UserId?.ToString() ?? "System";
+
+                await _unitOfWork.CompleteAsync();
+
+                await _context.Entry(deletedAssignment)
+                    .Reference(a => a.Employee)
+                    .LoadAsync();
+                await _context.Entry(deletedAssignment)
+                    .Reference(a => a.Elderly)
+                    .LoadAsync();
+
+                var reactivatedDto = _mapper.Map<EmployeeAssignmentDto>(deletedAssignment);
+                return new Response<EmployeeAssignmentDto>(reactivatedDto, "Employee assigned successfully");
             }
 
             var assignment = new EmployeeElderlyAssignment
@@ -1393,7 +1421,7 @@ public class AdminService : IAdminService
                 throw new NotFoundException($"Elderly with ID {elderlyId} not found");
             }
 
-            // Check if assignment already exists
+            // Check if assignment already exists (active)
             var existingAssignment = await _context.ElderlyFamilyMembers
                 .FirstOrDefaultAsync(f => f.ElderlyId == elderlyId && f.FamilyMemberId == familyMemberId && !f.IsDeleted);
 
@@ -1418,6 +1446,35 @@ public class AdminService : IAdminService
                     pa.IsPrimaryContact = false;
                     pa.UpdatedAt = DateTime.UtcNow;
                 }
+            }
+
+            // Check if a soft-deleted assignment exists (same composite PK) and reactivate it
+            var deletedAssignment = await _context.ElderlyFamilyMembers
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(f => f.ElderlyId == elderlyId && f.FamilyMemberId == familyMemberId && f.IsDeleted);
+
+            if (deletedAssignment != null)
+            {
+                // Reactivate the soft-deleted record
+                deletedAssignment.IsDeleted = false;
+                deletedAssignment.DeletedAt = null;
+                deletedAssignment.Relationship = relationship;
+                deletedAssignment.IsPrimaryContact = isPrimary;
+                deletedAssignment.CanScheduleVisits = true;
+                deletedAssignment.UpdatedAt = DateTime.UtcNow;
+                deletedAssignment.UpdatedBy = _currentUserService.UserId?.ToString() ?? "System";
+
+                await _unitOfWork.CompleteAsync();
+
+                await _context.Entry(deletedAssignment)
+                    .Reference(f => f.Elderly)
+                    .LoadAsync();
+                await _context.Entry(deletedAssignment)
+                    .Reference(f => f.FamilyMember)
+                    .LoadAsync();
+
+                var reactivatedDto = _mapper.Map<FamilyLinkDto>(deletedAssignment);
+                return new Response<FamilyLinkDto>(reactivatedDto, "Family member assigned successfully");
             }
 
             var assignment = new ElderlyFamilyMember

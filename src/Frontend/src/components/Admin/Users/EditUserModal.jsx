@@ -14,7 +14,7 @@ import {
 import { PencilIcon } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
-import { adminApiServices } from "../../services/AdminApi";
+import { usersApiServices } from "../../../services/Admin/UsersApi";
 import { addToast } from "@heroui/toast";
 
 const USER_TYPES = ["Admin", "Employee", "FamilyMember", "TeamLeader"];
@@ -47,13 +47,13 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdated }) {
                 phoneNumber: user.phoneNumber ?? "",
                 userType: user.userType ?? "",
                 isActive: user.isActive ?? true,
-                roles: user.roles ?? [],
+                roles: user.roles?.[0] ?? "",
             });
         }
     }, [user, reset]);
 
     const { mutate: updateUser, isPending } = useMutation({
-        mutationFn: (data) => adminApiServices.updateUser(user.id, data),
+        mutationFn: (data) => usersApiServices.updateUser(user.id, data),
         onSuccess: () => {
             addToast({
                 title: "User updated",
@@ -78,7 +78,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdated }) {
             lastName: data.lastName,
             phoneNumber: data.phoneNumber,
             isActive: data.isActive,
-            roles: Array.isArray(data.roles) ? data.roles : [data.roles],
+            roles: data.roles ? [data.roles] : [],
         });
     };
 
@@ -117,6 +117,30 @@ export default function EditUserModal({ isOpen, onClose, user, onUpdated }) {
                                 {...register("phoneNumber", { required: "Phone number is required" })}
                                 isInvalid={!!errors.phoneNumber}
                                 errorMessage={errors.phoneNumber?.message}
+                            />
+                            {/* Roles Select */}
+                            <Controller
+                                name="roles"
+                                control={control}
+                                rules={{ required: "Role is required" }}
+                                render={({ field }) => (
+                                    <Select
+                                        label="Role"
+                                        placeholder="Select a role"
+                                        variant="bordered"
+                                        className="sm:col-span-2"
+                                        selectedKeys={field.value ? new Set([field.value]) : new Set()}
+                                        onSelectionChange={(keys) => field.onChange([...keys][0])}
+                                        isInvalid={!!errors.roles}
+                                        errorMessage={errors.roles?.message}
+                                    >
+                                        {["Admin", "Employee", "FamilyMember", "TeamLeader"].map((role) => (
+                                            <SelectItem key={role} value={role}>
+                                                {role}
+                                            </SelectItem>
+                                        ))}
+                                    </Select>
+                                )}
                             />
 
                             {/* Active toggle */}
