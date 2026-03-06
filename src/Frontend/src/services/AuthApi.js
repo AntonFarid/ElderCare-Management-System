@@ -14,6 +14,12 @@ class ApiServices {
         return response;
     }
 
+    // Get all elderly (public, for sign-up form - no auth required)
+    async getAllElderly() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Auth/elderly-list");
+        return response;
+    }
+
 
     // signIn function
     async signIn(loginData) {
@@ -21,15 +27,15 @@ class ApiServices {
         return response;
     }
 
-    //   // Change Password function (Authenticated)
-    //     async changePassword(passwords) {
-    //         const response = await axios.patch(import.meta.env.VITE_BASE_URL + "/users/change-password", passwords, {
-    //             headers: {
-    //                 token: this.#token
-    //             }
-    //         });
-    //         return response;
-    //     }
+    // Change Password (Authenticated - shared across all roles)
+    async changePassword(data) {
+        const response = await axios.post(import.meta.env.VITE_BASE_URL + "Auth/change-password", data, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+        });
+        return response;
+    }
 
 
 

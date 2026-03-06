@@ -1,0 +1,104 @@
+import axios from "axios";
+
+class EmployeeApiServices {
+
+    #getAuthHeaders() {
+        return {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+        };
+    }
+
+    // Get employee profile
+    async getEmployeeProfile() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/profile", {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Update employee profile
+    async updateEmployeeProfile(profileData) {
+        const response = await axios.put(import.meta.env.VITE_BASE_URL + "Employee/profile", profileData, {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Get all assigned elderly
+    async getAssignedElderly() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/assigned-elderly", {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Get assigned elderly by ID
+    async getAssignedElderlyById(elderlyId) {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + `Employee/assigned-elderly/${elderlyId}`, {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Get reports (with optional filters and pagination)
+    async getReports(params = {}) {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/reports", {
+            headers: this.#getAuthHeaders(),
+            params
+        });
+        return response;
+    }
+
+    // Get a specific report by ID
+    async getReportById(reportId) {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + `Employee/reports/${reportId}`, {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Create a new report
+    async createReport(reportData) {
+        const response = await axios.post(import.meta.env.VITE_BASE_URL + "Employee/reports", reportData, {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Update an existing report
+    async updateReport(reportId, reportData) {
+        const response = await axios.put(import.meta.env.VITE_BASE_URL + `Employee/reports/${reportId}`, reportData, {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Get full schedule
+    async getSchedule(params = {}) {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/schedule", {
+            headers: this.#getAuthHeaders(),
+            params
+        });
+        return response;
+    }
+
+    // Get today's schedule
+    async getTodaySchedule() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/schedule/today", {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    // Get reports summary
+    async getReportsSummary() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/reports/summary", {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+}
+
+
+export const employeeApiServices = new EmployeeApiServices();

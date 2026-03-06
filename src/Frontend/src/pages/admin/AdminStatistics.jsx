@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardBody, Divider, Spinner, Chip, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell } from "@heroui/react";
+import { Card, CardHeader, CardBody, Divider, Spinner, Chip } from "@heroui/react";
 import {
     UsersIcon, HeartIcon, FileTextIcon, BarChart3Icon,
-    UserCheckIcon, UserXIcon, ShieldIcon, ActivityIcon, ClipboardListIcon
+    UserCheckIcon, UserXIcon, ShieldIcon, ActivityIcon
 } from "lucide-react";
 import { usersApiServices } from "../../services/Admin/UsersApi";
 
 export default function AdminStatistics() {
     const [stats, setStats] = useState(null);
-    const [auditLogs, setAuditLogs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -19,18 +18,11 @@ export default function AdminStatistics() {
                 setStats(data);
             } catch (error) {
                 console.error("Error fetching statistics:", error);
+            } finally {
+                setIsLoading(false);
             }
         };
-        const fetchAuditLogs = async () => {
-            try {
-                const response = await usersApiServices.getAuditLogs();
-                const data = response.data.data || response.data || [];
-                setAuditLogs(Array.isArray(data) ? data : []);
-            } catch (error) {
-                console.error("Error fetching audit logs:", error);
-            }
-        };
-        Promise.all([fetchStats(), fetchAuditLogs()]).finally(() => setIsLoading(false));
+        fetchStats();
     }, []);
 
     if (isLoading) {
@@ -67,7 +59,10 @@ export default function AdminStatistics() {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-white">System Statistics</h1>
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
+                    <BarChart3Icon className="w-8 h-8 text-blue-500" />
+                    System Statistics
+                </h1>
                 <p className="text-gray-500 mt-2">Complete overview of your facility's data and metrics.</p>
             </div>
 
@@ -233,59 +228,6 @@ export default function AdminStatistics() {
                 </Card>
             )}
 
-            <Divider />
-
-            {/* Audit Logs */}
-            <div>
-                <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <ClipboardListIcon className="w-5 h-5 text-slate-500" />
-                    Recent Audit Logs
-                </h2>
-                {auditLogs.length > 0 ? (
-                    <Card className="shadow-md">
-                        <CardBody className="p-0">
-                            <Table aria-label="Audit logs table" removeWrapper>
-                                <TableHeader>
-                                    <TableColumn>ACTION</TableColumn>
-                                    <TableColumn>ENTITY</TableColumn>
-                                    <TableColumn>ENTITY ID</TableColumn>
-                                    <TableColumn>PERFORMED BY</TableColumn>
-                                    <TableColumn>DATE</TableColumn>
-                                </TableHeader>
-                                <TableBody>
-                                    {auditLogs.slice(0, 20).map((log, index) => (
-                                        <TableRow key={log.id || index}>
-                                            <TableCell>
-                                                <Chip
-                                                    size="sm"
-                                                    variant="flat"
-                                                    color={
-                                                        log.action === "Create" ? "success" :
-                                                            log.action === "Update" ? "warning" :
-                                                                log.action === "Delete" ? "danger" : "default"
-                                                    }
-                                                >
-                                                    {log.action}
-                                                </Chip>
-                                            </TableCell>
-                                            <TableCell>{log.entityType}</TableCell>
-                                            <TableCell>{log.entityId}</TableCell>
-                                            <TableCell>{log.performedBy || "System"}</TableCell>
-                                            <TableCell>{new Date(log.timestamp || log.createdAt).toLocaleString()}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardBody>
-                    </Card>
-                ) : (
-                    <Card className="shadow-md">
-                        <CardBody className="py-8 text-center text-default-400 italic">
-                            No audit logs found.
-                        </CardBody>
-                    </Card>
-                )}
-            </div>
         </div>
     );
 }

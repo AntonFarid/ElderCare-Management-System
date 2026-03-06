@@ -13,6 +13,7 @@ import AuthContextProvider from './contexts/AuthContext';
 import EmployeeLayout from './layouts/EmployeeLayout';
 import AdminLayout from './layouts/AdminLayout';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Navigate } from 'react-router-dom';
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UsersManagement from './pages/admin/UsersManagement';
@@ -22,11 +23,16 @@ import AdminReports from './pages/admin/Reports';
 import EldersManagement from './pages/admin/EldersManagement';
 import ElderDetails from './pages/admin/ElderDetails';
 import AdminStatistics from './pages/admin/AdminStatistics';
+import AuditLogs from './pages/admin/AuditLogs';
 // Employee Pages
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
 import EmployeeResidents from './pages/employee/Residents';
-import EmployeeReports from './pages/employee/EmployeeReports';
 import EmployeeSchedule from './pages/employee/Schedule';
+import EmployeeProfile from './pages/employee/EmployeeProfile';
+import ResidentDetails from './pages/employee/ResidentDetails';
+import DailyReports from './pages/employee/DailyReports';
+import CreateReport from './pages/employee/CreateReport';
+import ViewReport from './pages/employee/ViewReport';
 
 // Family Pages
 import Messages from './pages/family/Messages';
@@ -42,61 +48,53 @@ const router = createBrowserRouter([
     path: '',
     element: <AuthLayout />,
     children: [
-      { path: 'signin', element: <SignIn /> },
-      { path: 'signup', element: <SignUp /> },
+      { index: true, element: <Navigate to="/signin" replace /> },
+      { path: 'signin', element: <ProtectedAuthRoutes><SignIn /></ProtectedAuthRoutes> },
+      { path: 'signup', element: <ProtectedAuthRoutes><SignUp /></ProtectedAuthRoutes> },
     ]
   },
   // Family Routes
   {
     path: '/',
-    element: <FamilyLayout />,
+    element: <ProtectedRoutes allowedRoles={['FamilyMember']}><FamilyLayout /></ProtectedRoutes>,
     children: [
       { path: '', element: <Home /> },
-      {
-        path: 'family/home', element:
-          //  <ProtectedRoutes>
-          <Home />
-        //    </ProtectedRoutes> 
-      },
-      { path: 'family/profile', element: <ProtectedRoutes><Profile /></ProtectedRoutes> },
-      { path: 'family/messages', element: <ProtectedRoutes><Messages /></ProtectedRoutes> },
-      { path: 'family/dailyupdates', element: <ProtectedRoutes><DailyUpdates /></ProtectedRoutes> },
+      { path: 'family/home', element: <Home /> },
+      { path: 'family/profile', element: <Profile /> },
+      { path: 'family/messages', element: <Messages /> },
+      { path: 'family/dailyupdates', element: <DailyUpdates /> },
     ]
   },
   // Admin Routes
   {
     path: 'admin',
-    element: <AdminLayout />,
+    element: <ProtectedRoutes allowedRoles={['Admin']}><AdminLayout /></ProtectedRoutes>,
     children: [
-      {
-        path: 'dashboard', element:
-          //    <ProtectedRoutes>
-          <AdminDashboard />
-        //      </ProtectedRoutes> 
-      },
-      { path: 'users', element: <ProtectedRoutes><UsersManagement /></ProtectedRoutes> },
-      { path: 'users/:id', element: <ProtectedRoutes><UserDetails /></ProtectedRoutes> },
-      { path: 'elders', element: <ProtectedRoutes><EldersManagement /></ProtectedRoutes> },
-      { path: 'elders/:id', element: <ProtectedRoutes><ElderDetails /></ProtectedRoutes> },
-      { path: 'profile', element: <ProtectedRoutes><AdminProfile /></ProtectedRoutes> },
-      { path: 'reports', element: <ProtectedRoutes><AdminReports /></ProtectedRoutes> },
-      { path: 'statistics', element: <ProtectedRoutes><AdminStatistics /></ProtectedRoutes> },
+      { path: 'dashboard', element: <AdminDashboard /> },
+      { path: 'users', element: <UsersManagement /> },
+      { path: 'users/:id', element: <UserDetails /> },
+      { path: 'elders', element: <EldersManagement /> },
+      { path: 'elders/:id', element: <ElderDetails /> },
+      { path: 'profile', element: <AdminProfile /> },
+      { path: 'reports', element: <AdminReports /> },
+      { path: 'statistics', element: <AdminStatistics /> },
+      { path: 'audit-logs', element: <AuditLogs /> },
     ]
   },
   // Employee Routes
   {
     path: 'employee',
-    element: <EmployeeLayout />,
+    element: <ProtectedRoutes allowedRoles={['Employee', 'TeamLeader']}><EmployeeLayout /></ProtectedRoutes>,
     children: [
-      {
-        path: 'dashboard', element:
-          // <ProtectedRoutes>
-          <EmployeeDashboard />
-        //   </ProtectedRoutes>
-      },
-      { path: 'residents', element: <ProtectedRoutes><EmployeeResidents /></ProtectedRoutes> },
-      { path: 'reports', element: <ProtectedRoutes><EmployeeReports /></ProtectedRoutes> },
-      { path: 'schedule', element: <ProtectedRoutes><EmployeeSchedule /></ProtectedRoutes> },
+      { path: 'dashboard', element: <EmployeeDashboard /> },
+      { path: 'residents', element: <EmployeeResidents /> },
+      { path: 'residents/:id', element: <ResidentDetails /> },
+      { path: 'schedule', element: <EmployeeSchedule /> },
+      { path: 'dailyreports', element: <DailyReports /> },
+      { path: 'dailyreports/create', element: <CreateReport /> },
+      { path: 'dailyreports/edit/:id', element: <CreateReport /> },
+      { path: 'dailyreports/:id', element: <ViewReport /> },
+      { path: 'profile', element: <EmployeeProfile /> },
     ]
   },
   // 404 Not Found

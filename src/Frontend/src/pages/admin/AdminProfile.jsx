@@ -25,8 +25,12 @@ import {
     ClockIcon,
     BadgeCheckIcon,
     PencilIcon,
+    LockIcon,
+    EyeIcon,
+    EyeOffIcon,
 } from "lucide-react";
 import { usersApiServices } from "../../services/Admin/UsersApi";
+import { apiServices } from "../../services/AuthApi";
 import { addToast } from "@heroui/toast";
 import { useForm } from "react-hook-form";
 
@@ -75,6 +79,19 @@ export default function AdminProfile() {
     const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm();
+
+    // Change password form
+    const {
+        register: registerPw,
+        handleSubmit: handleSubmitPw,
+        reset: resetPw,
+        watch: watchPw,
+        formState: { errors: errorsPw }
+    } = useForm();
+    const [isChangingPw, setIsChangingPw] = useState(false);
+    const [showCurrentPw, setShowCurrentPw] = useState(false);
+    const [showNewPw, setShowNewPw] = useState(false);
+    const [showConfirmPw, setShowConfirmPw] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -141,12 +158,50 @@ export default function AdminProfile() {
         ? `${profile.firstName?.[0] ?? ""}${profile.lastName?.[0] ?? ""}`.toUpperCase()
         : "?";
 
+    const onChangePassword = async (data) => {
+        setIsChangingPw(true);
+        try {
+            await apiServices.changePassword({
+                currentPassword: data.currentPassword,
+                newPassword: data.newPassword,
+                confirmNewPassword: data.confirmPassword,
+            });
+            addToast({
+                title: "Success",
+                description: "Password changed successfully",
+                color: "success",
+            });
+            resetPw();
+        } catch (error) {
+            const res = error.response?.data;
+            let errorMsg = "Failed to change password.";
+            if (res?.message) {
+                errorMsg = res.message;
+            } else if (res?.errors) {
+                errorMsg = Object.values(res.errors).flat().join(". ");
+            } else if (typeof res === "string") {
+                errorMsg = res;
+            }
+            console.error("Change password error:", res);
+            addToast({
+                title: "Error",
+                description: errorMsg,
+                color: "danger",
+            });
+        } finally {
+            setIsChangingPw(false);
+        }
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto">
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Profile</h1>
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
+                        <UserIcon className="w-8 h-8 text-blue-500" />
+                        My Profile
+                    </h1>
                     <p className="text-gray-500 mt-1 text-sm">
                         View and manage your administrator account details.
                     </p>
@@ -299,6 +354,76 @@ export default function AdminProfile() {
                     </CardBody>
                 </Card>
             </div>
+
+            {/* Change Password Section */}
+            <Card className="border-none shadow-md">
+                <CardHeader className="px-5 pt-5 pb-2">
+                    <div className="flex items-center gap-2">
+                        <LockIcon className="w-5 h-5 text-orange-500" />
+                        <h3 className="text-base font-semibold text-gray-700 dark:text-gray-200">
+                            Change Password
+                        </h3>
+                    </div>
+                </CardHeader>
+                <Divider />
+                <CardBody className="px-5 py-5">
+                    <form onSubmit={handleSubmitPw(onChangePassword)} className="space-y-4 max-w-md">
+                        <Input
+                            label="Current Password"
+                            placeholder="Enter your current password"
+                            variant="bordered"
+                            type={showCurrentPw ? "text" : "password"}
+                            endContent={
+                                <button type="button" onClick={() => setShowCurrentPw(!showCurrentPw)} className="text-gray-400 hover:text-gray-600">
+                                    {showCurrentPw ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                </button>
+                            }
+                            {...registerPw("currentPassword", { required: "Current password is required" })}
+                            isInvalid={!!errorsPw.currentPassword}
+                            errorMessage={errorsPw.currentPassword?.message}
+                        />
+                        <Input
+                            label="New Password"
+                            placeholder="Enter your new password"
+                            variant="bordered"
+                            type={showNewPw ? "text" : "password"}
+                            endContent={
+                                <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="text-gray-400 hover:text-gray-600">
+                                    {showNewPw ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                </button>
+                            }
+                            {...registerPw("newPassword", {
+                                required: "New password is required",
+                                minLength: { value: 6, message: "Password must be at least 6 characters" }
+                            })}
+                            isInvalid={!!errorsPw.newPassword}
+                            errorMessage={errorsPw.newPassword?.message}
+                        />
+                        <Input
+                            label="Confirm New Password"
+                            placeholder="Confirm your new password"
+                            variant="bordered"
+                            type={showConfirmPw ? "text" : "password"}
+                            endContent={
+                                <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="text-gray-400 hover:text-gray-600">
+                                    {showConfirmPw ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                </button>
+                            }
+                            {...registerPw("confirmPassword", {
+                                required: "Please confirm your new password",
+                                validate: (val) => val === watchPw("newPassword") || "Passwords do not match"
+                            })}
+                            isInvalid={!!errorsPw.confirmPassword}
+                            errorMessage={errorsPw.confirmPassword?.message}
+                        />
+                        <div className="flex justify-end pt-2">
+                            <Button color="primary" type="submit" isLoading={isChangingPw} startContent={!isChangingPw && <LockIcon className="w-4 h-4" />}>
+                                Update Password
+                            </Button>
+                        </div>
+                    </form>
+                </CardBody>
+            </Card>
 
             {/* Edit Profile Modal */}
             <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">

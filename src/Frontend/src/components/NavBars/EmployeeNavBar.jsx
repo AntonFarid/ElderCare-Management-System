@@ -14,7 +14,7 @@ export default function EmployeeNavbar() {
     const navigationItems = [
         { name: 'Dashboard', path: '/employee/dashboard' },
         { name: 'My Residents', path: '/employee/residents' },
-        { name: 'Daily Reports', path: '/employee/reports' },
+        { name: 'Daily Reports', path: '/employee/dailyreports' },
         { name: 'Schedule', path: '/employee/schedule' },
         { name: 'Profile', path: '/employee/profile' },
     ];

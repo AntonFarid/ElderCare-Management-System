@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
     Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
     Input, Button, DropdownTrigger, Dropdown, DropdownMenu, DropdownItem,
-    Chip,
+    Chip, Select, SelectItem,
 } from "@heroui/react";
-import { Plus, Search, MoreVertical } from "lucide-react";
+import { Plus, Search, MoreVertical, HeartIcon, DownloadIcon, FilterXIcon } from "lucide-react";
 import { eldersApiServices } from "../../services/Admin/EldersApi";
 import { addToast } from "@heroui/toast";
 import DeleteElderlyModal from "../../components/Admin/Elders/DeleteElderlyModal";
 import CreateElderlyModal from "../../components/Admin/Elders/CreateElderlyModal";
+import * as XLSX from 'xlsx';
 
 const columns = [
     { name: "NAME", uid: "name" },
@@ -25,6 +26,8 @@ export default function EldersManagement() {
     const [assignmentsMap, setAssignmentsMap] = useState({});
     const [isLoading, setIsLoading] = useState(true);
     const [filterValue, setFilterValue] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [assignmentFilter, setAssignmentFilter] = useState("");
     const [elderlyToDelete, setElderlyToDelete] = useState(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -125,27 +128,121 @@ export default function EldersManagement() {
 
     const filteredItems = useMemo(() => {
         if (!Array.isArray(elders)) return [];
-        return elders.filter((elder) => {
-            const fullName = (elder.firstName || "") + " " + (elder.lastName || "");
-            return fullName.toLowerCase().includes(filterValue.toLowerCase()) ||
-                (elder.roomNumber && elder.roomNumber.toLowerCase().includes(filterValue.toLowerCase()));
+        let filtered = [...elders];
+        if (filterValue) {
+            filtered = filtered.filter((elder) => {
+                const fullName = (elder.firstName || "") + " " + (elder.lastName || "");
+                return fullName.toLowerCase().includes(filterValue.toLowerCase()) ||
+                    (elder.roomNumber && elder.roomNumber.toLowerCase().includes(filterValue.toLowerCase()));
+            });
+        }
+        if (statusFilter) {
+            filtered = filtered.filter((elder) => {
+                if (statusFilter === "active") return elder.isActive !== false;
+                if (statusFilter === "inactive") return elder.isActive === false;
+                return true;
+            });
+        }
+        if (assignmentFilter) {
+            filtered = filtered.filter((elder) => {
+                const eId = elder.id || elder.Id;
+                const emp = assignmentsMap[eId];
+                if (assignmentFilter === "assigned") return emp && emp !== "Not Assigned";
+                if (assignmentFilter === "unassigned") return !emp || emp === "Not Assigned";
+                return true;
+            });
+        }
+        return filtered;
+    }, [elders, filterValue, statusFilter, assignmentFilter, assignmentsMap]);
+
+    const handleClearFilters = () => {
+        setFilterValue("");
+        setStatusFilter("");
+        setAssignmentFilter("");
+    };
+
+    const handleExportExcel = () => {
+        const rows = filteredItems.map(elder => {
+            const eId = elder.id || elder.Id;
+            return {
+                "First Name": elder.firstName || "",
+                "Last Name": elder.lastName || "",
+                "Room": elder.roomNumber || "",
+                "Status": elder.isActive !== false ? "Active" : "Inactive",
+                "Assigned Employee": assignmentsMap[eId] || "Not Assigned",
+                "Date of Birth": elder.dateOfBirth ? new Date(elder.dateOfBirth).toLocaleDateString() : "",
+            };
         });
-    }, [elders, filterValue]);
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const colWidths = Object.keys(rows[0] || {}).map(key => ({
+            wch: Math.max(key.length, ...rows.map(r => String(r[key]).length).slice(0, 50)) + 2
+        }));
+        worksheet['!cols'] = colWidths;
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Elderly");
+        XLSX.writeFile(workbook, `Elderly_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
 
     return (
         <div className="p-4 space-y-4">
-            <div className="flex justify-between items-end gap-3">
-                <Input
-                    isClearable
-                    className="w-full sm:max-w-[44%]"
-                    placeholder="Search by name or room..."
-                    startContent={<Search />}
-                    value={filterValue}
-                    onClear={() => setFilterValue("")}
-                    onValueChange={setFilterValue}
-                />
-                <div className="flex gap-3">
-                    <Button color="primary" endContent={<Plus />} onPress={() => setIsCreateOpen(true)}>
+            <div className="mb-2">
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
+                    <HeartIcon className="w-8 h-8 text-blue-500" />
+                    Elders Management
+                </h1>
+                <p className="text-gray-500 mt-2">Manage all elderly residents in the facility.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
+                <div className="flex flex-wrap items-end gap-3 flex-1">
+                    <Input
+                        isClearable
+                        className="w-full sm:max-w-[220px]"
+                        placeholder="Search by name or room..."
+                        startContent={<Search className="w-4 h-4" />}
+                        value={filterValue}
+                        onClear={() => setFilterValue("")}
+                        onValueChange={setFilterValue}
+                        size="sm"
+                    />
+                    <Select
+                        label="Status"
+                        labelPlacement="outside"
+                        placeholder="All Statuses"
+                        selectedKeys={statusFilter ? [statusFilter] : []}
+                        onSelectionChange={(keys) => setStatusFilter([...keys][0] || "")}
+                        size="sm"
+                        className="w-full sm:w-[150px]"
+                    >
+                        <SelectItem key="">All Statuses</SelectItem>
+                        <SelectItem key="active">Active</SelectItem>
+                        <SelectItem key="inactive">Inactive</SelectItem>
+                    </Select>
+                    <Select
+                        label="Assignment"
+                        labelPlacement="outside"
+                        placeholder="All"
+                        selectedKeys={assignmentFilter ? [assignmentFilter] : []}
+                        onSelectionChange={(keys) => setAssignmentFilter([...keys][0] || "")}
+                        size="sm"
+                        className="w-full sm:w-[160px]"
+                    >
+                        <SelectItem key="">All</SelectItem>
+                        <SelectItem key="assigned">Assigned</SelectItem>
+                        <SelectItem key="unassigned">Unassigned</SelectItem>
+                    </Select>
+                    {(statusFilter || assignmentFilter) && (
+                        <Button variant="flat" size="sm" onPress={handleClearFilters} startContent={<FilterXIcon className="w-4 h-4" />}>
+                            Clear
+                        </Button>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    {filteredItems.length > 0 && (
+                        <Button variant="bordered" color="success" size="sm" onPress={handleExportExcel} startContent={<DownloadIcon className="w-4 h-4" />}>
+                            Export To Excel
+                        </Button>
+                    )}
+                    <Button color="primary" size="sm" endContent={<Plus className="w-4 h-4" />} onPress={() => setIsCreateOpen(true)}>
                         Add New Elder
                     </Button>
                 </div>
@@ -185,6 +282,6 @@ export default function EldersManagement() {
                 onClose={() => setIsCreateOpen(false)}
                 onCreated={fetchData}
             />
-        </div>
+        </div >
     );
 }

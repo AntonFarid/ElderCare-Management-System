@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -373,7 +373,9 @@ public class TeamLeaderService : ITeamLeaderService
         {
             _logger.LogInformation("Getting reports summary for team leader");
 
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var today = egyptTime.Date;
             var reports = await _context.DailyReports
                 .Include(r => r.Elderly)
                 .Include(r => r.Employee)
@@ -540,7 +542,9 @@ public class TeamLeaderService : ITeamLeaderService
                 throw new NotFoundException($"Employee with ID {employeeId} not found");
             }
 
-            var endDate = toDate ?? DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var endDate = toDate ?? egyptTime.Date;
             var startDate = fromDate ?? endDate.AddDays(-30);
 
             // Get reports in date range
@@ -617,7 +621,9 @@ public class TeamLeaderService : ITeamLeaderService
         {
             _logger.LogInformation("Getting performance summary for all employees");
 
-            var targetDate = date ?? DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var targetDate = date ?? egyptTime.Date;
             var employees = await _context.Users
                 .Where(u => u.UserType == UserType.Employee && u.IsActive && !u.IsDeleted)
                 .ToListAsync();
@@ -723,7 +729,9 @@ public class TeamLeaderService : ITeamLeaderService
             }).ToList();
 
             // Get today's schedule and attendance
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var today = egyptTime.Date;
             employeeDto.TodaySchedule = _mapper.Map<WorkScheduleDto>(
                 await _context.WorkSchedules
                     .FirstOrDefaultAsync(s => s.EmployeeId == employeeId &&
@@ -888,7 +896,9 @@ public class TeamLeaderService : ITeamLeaderService
         {
             _logger.LogInformation("Getting current attendance status");
 
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var today = egyptTime.Date;
             var now = DateTime.Now.TimeOfDay;
 
             var employees = await _context.Users
@@ -1158,7 +1168,9 @@ public class TeamLeaderService : ITeamLeaderService
         {
             _logger.LogInformation("Getting today's schedule summary");
 
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var today = egyptTime.Date;
             var schedules = await _context.WorkSchedules
                 .Include(s => s.Employee)
                 .Where(s => s.ShiftDate.Date == today.Date && !s.IsDeleted)
@@ -1481,7 +1493,9 @@ public class TeamLeaderService : ITeamLeaderService
             }
 
             // Check if the requested date is in the past
-            if (visit.RequestedDate < DateTime.Today)
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            if (visit.RequestedDate < egyptTime.Date)
             {
                 throw new ValidationException("Cannot approve past visit requests",
                     new Dictionary<string, string[]>
@@ -1609,7 +1623,9 @@ public class TeamLeaderService : ITeamLeaderService
         {
             _logger.LogInformation("Getting visit requests summary");
 
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var today = egyptTime.Date;
             var tomorrow = today.AddDays(1);
 
             var totalPending = await _context.VisitRequests

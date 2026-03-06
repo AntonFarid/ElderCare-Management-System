@@ -137,6 +137,10 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.ApprovedByName,
                 opt => opt.MapFrom(src => src.ApprovedBy != null
                     ? $"{src.ApprovedBy.FirstName} {src.ApprovedBy.LastName}"
+                    : null))
+            .ForMember(dest => dest.ApprovedByRole,
+                opt => opt.MapFrom(src => src.ApprovedBy != null
+                    ? src.ApprovedBy.UserType.ToString()
                     : null));
 
         // DailyReport to DailyReportDetailDto
@@ -170,7 +174,7 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => src.ApprovalStatus.ToString()))
             .ForMember(dest => dest.ApprovedBy,
                 opt => opt.MapFrom(src => src.ApprovedBy != null
-                    ? $"{src.ApprovedBy.FirstName} {src.ApprovedBy.LastName}"
+                    ? $"{src.ApprovedBy.FirstName} {src.ApprovedBy.LastName} ({src.ApprovedBy.UserType})"
                     : null));
     }
 

@@ -16,6 +16,7 @@ export default function AdminNavbar() {
         { name: 'Users Management', path: '/admin/users' },
         { name: 'Elders Management', path: '/admin/elders' },
         { name: 'Statistics', path: '/admin/statistics' },
+        { name: 'Audit Logs', path: '/admin/audit-logs' },
         { name: 'Profile', path: '/admin/profile' },
         { name: 'Reports', path: '/admin/reports' },
     ];

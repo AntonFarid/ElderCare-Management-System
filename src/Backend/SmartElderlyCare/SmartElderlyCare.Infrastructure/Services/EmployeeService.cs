@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -250,11 +250,14 @@ public class EmployeeService : IEmployeeService
                 .FirstOrDefaultAsync(e => e.Id == createDto.ElderlyId);
 
             // Map DTO to entity
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            
             var report = _mapper.Map<DailyReport>(createDto);
             report.EmployeeId = employeeId;
-            report.SubmissionDate = DateTime.UtcNow;
+            report.SubmissionDate = egyptTime;
             report.ApprovalStatus = ApprovalStatus.Pending;
-            report.CreatedAt = DateTime.UtcNow;
+            report.CreatedAt = egyptTime;
             report.CreatedBy = employeeId.ToString();
 
             // Store structured data as JSON for AI processing
@@ -884,8 +887,11 @@ public class EmployeeService : IEmployeeService
         {
             _logger.LogInformation($"Employee {employeeId} clocking in");
 
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+
             // Check if already clocked in today
-            var today = DateTime.Today;
+            var today = egyptNow.Date;
             var existingLog = await _context.AttendanceLogs
                 .FirstOrDefaultAsync(a => a.EmployeeId == employeeId &&
                                          a.LoginTime.Date == today);
@@ -918,8 +924,8 @@ public class EmployeeService : IEmployeeService
             var attendanceLog = new AttendanceLog
             {
                 EmployeeId = employeeId,
-                LoginTime = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
+                LoginTime = egyptNow,
+                CreatedAt = egyptNow
             };
 
             await _unitOfWork.Repository<AttendanceLog>().AddAsync(attendanceLog);
@@ -945,7 +951,10 @@ public class EmployeeService : IEmployeeService
         {
             _logger.LogInformation($"Employee {employeeId} clocking out");
 
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+
+            var today = egyptNow.Date;
             var attendanceLog = await _context.AttendanceLogs
                 .FirstOrDefaultAsync(a => a.EmployeeId == employeeId &&
                                          a.LoginTime.Date == today &&
@@ -960,8 +969,8 @@ public class EmployeeService : IEmployeeService
                     });
             }
 
-            attendanceLog.LogoutTime = DateTime.UtcNow;
-            attendanceLog.UpdatedAt = DateTime.UtcNow;
+            attendanceLog.LogoutTime = egyptNow;
+            attendanceLog.UpdatedAt = egyptNow;
 
             await _unitOfWork.CompleteAsync();
 
@@ -985,7 +994,9 @@ public class EmployeeService : IEmployeeService
         {
             _logger.LogInformation($"Getting attendance status for employee {employeeId}");
 
-            var today = DateTime.Today;
+            var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+            var egyptNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+            var today = egyptNow.Date;
             var attendanceLog = await _context.AttendanceLogs
                 .FirstOrDefaultAsync(a => a.EmployeeId == employeeId &&
                                          a.LoginTime.Date == today);

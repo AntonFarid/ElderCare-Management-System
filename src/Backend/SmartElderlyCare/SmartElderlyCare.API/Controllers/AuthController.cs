@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartElderlyCare.Application.DTOs.Authentication;
+using SmartElderlyCare.Application.DTOs.Common;
+using SmartElderlyCare.Application.DTOs.Elderly;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 using System.Security.Claims;
@@ -14,13 +16,16 @@ namespace SmartElderlyCare.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthenticationService _authenticationService;
+    private readonly IAdminService _adminService;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IAuthenticationService authenticationService,
+        IAdminService adminService,
         ILogger<AuthController> logger)
     {
         _authenticationService = authenticationService;
+        _adminService = adminService;
         _logger = logger;
     }
 
@@ -151,5 +156,28 @@ public class AuthController : ControllerBase
                 Roles = roles
             }
         });
+    }
+
+    /// <summary>
+    /// Get list of elderly residents for family registration (Public - no auth required)
+    /// </summary>
+    /// <returns>List of elderly with basic info</returns>
+    [HttpGet("elderly-list")]
+    [ProducesResponseType(typeof(Response<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetElderlyListForRegistration()
+    {
+        var parameters = new ElderlyFilterParameters { PageSize = 200 };
+        var response = await _adminService.GetAllElderlyAsync(parameters);
+        
+        // Return simplified list with just id, name, and room
+        var simplifiedList = response.Data?.Data?.Select(e => new 
+        {
+            e.Id,
+            e.FirstName,
+            e.LastName,
+            e.RoomNumber
+        }).ToList();
+
+        return Ok(new Response<object>(simplifiedList, "Elderly list retrieved successfully"));
     }
 }

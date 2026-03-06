@@ -83,6 +83,14 @@ class UsersApiServices {
         return response;
     }
 
+    // Get dashboard data (statistics, recent activity, charts, etc.)
+    async getDashboardData() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Admin/dashboard", {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
     // Delete a user by ID
     async deleteUser(id) {
         const response = await axios.delete(import.meta.env.VITE_BASE_URL + `Admin/users/${id}`, {
@@ -91,5 +99,6 @@ class UsersApiServices {
         return response;
     }
 }
+
 
 export const usersApiServices = new UsersApiServices();

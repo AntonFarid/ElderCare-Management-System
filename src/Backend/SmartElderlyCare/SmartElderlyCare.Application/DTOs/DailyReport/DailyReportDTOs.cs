@@ -24,6 +24,7 @@ public class DailyReportDto : BaseDto
     public string ApprovalStatus { get; set; } = string.Empty;
     public int? ApprovedById { get; set; }
     public string? ApprovedByName { get; set; }
+    public string? ApprovedByRole { get; set; }
     public DateTime? ApprovedDate { get; set; }
     public string? RejectionReason { get; set; }
     public string AiGeneratedReport { get; set; } = string.Empty;
