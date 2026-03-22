@@ -45,28 +45,6 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Register a new employee (Admin only)
-    /// </summary>
-    /// <param name="request">Employee registration data</param>
-    /// <returns>Created employee info with token</returns>
-    [HttpPost("register/employee")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(Response<AuthenticationResponse>), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RegisterEmployee([FromBody] RegisterEmployeeRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(new Response<string>("Invalid request data"));
-        }
-
-        var response = await _authenticationService.RegisterEmployeeAsync(request);
-        return StatusCode(StatusCodes.Status201Created, response);
-    }
-
-    /// <summary>
     /// Register a new family member (Public registration with validation)
     /// </summary>
     /// <param name="request">Family member registration data</param>
