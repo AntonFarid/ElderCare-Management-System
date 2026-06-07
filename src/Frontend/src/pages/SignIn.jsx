@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signInSchema } from "../assets/helpers/singInValidationRules";
 import axios from "axios";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { addToast, ToastProvider } from "@heroui/toast";
 import { HeartHandshake } from 'lucide-react';
 import { useContext } from "react";
@@ -53,10 +53,12 @@ export default function SignIn() {
         navigate("/admin/dashboard");
       } else if (userType === "FamilyMember") {
         navigate("/family/home");
-      } else if (userType === "Employee" || userType === "TeamLeader") {
+      } else if (userType === "TeamLeader") {
+        navigate("/teamleader/dashboard");
+      } else if (userType === "Employee") {
         navigate("/employee/dashboard");
       } else {
-        navigate("/");
+        navigate("/SignIn");
       }
 
     } catch (error) {
@@ -173,9 +175,9 @@ export default function SignIn() {
                 <input type="checkbox" className="rounded" />
                 Remember me
               </label>
-              <a href="#" className="text-blue-500 cursor-pointer font-medium hover:text-blue-400">
+              <Link to="/forgot-password" className="text-blue-500 cursor-pointer font-medium hover:text-blue-400">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             <Button

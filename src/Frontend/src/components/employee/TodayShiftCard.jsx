@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardBody, Spinner, Button } from '@heroui/react';
 import { addToast } from '@heroui/toast';
-import { Calendar, Briefcase, Clock, LogIn, LogOut } from 'lucide-react';
+import { Calendar, Briefcase, Clock, LogIn, LogOut, Coffee } from 'lucide-react';
 import { employeeAttendanceServices } from '../../services/Employee/EmployeeAttendence';
 
 export default function TodayShiftCard({ schedule, isLoading }) {
     const [attendanceStatus, setAttendanceStatus] = useState(null);
     const [isCheckingStatus, setIsCheckingStatus] = useState(true);
     const [isClocking, setIsClocking] = useState(false);
+
+    const isOffDay = (schedule?.shiftType === "Off Day" || schedule?.shiftType === "OffDay");
 
     const fetchAttendanceStatus = async () => {
         try {
@@ -158,6 +160,22 @@ export default function TodayShiftCard({ schedule, isLoading }) {
             );
         }
 
+        if (isOffDay) {
+            return (
+                <div className="mt-8 pt-6 border-t border-white/20">
+                    <div className="flex flex-col sm:flex-row bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 justify-center items-center gap-4 shadow-sm">
+                        <div className="p-4 bg-white/20 rounded-full">
+                            <Coffee className="w-8 h-8 text-white" />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-xl font-bold text-white mb-1">It's your day off!</h3>
+                            <p className="text-blue-100 italic">"Rest is the base of progress." — Have a great day!</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="mt-8 pt-6 border-t border-white/20">
                 <div className="flex flex-col sm:flex-row bg-white/10 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/20 justify-between sm:items-center gap-5 shadow-sm">
@@ -179,7 +197,7 @@ export default function TodayShiftCard({ schedule, isLoading }) {
                         onPress={handleClockIn}
                         startContent={!isClocking && <LogIn className="w-5 h-5" />}
                     >
-                        Clock In Now
+                        Start Your Shift Now
                     </Button>
                 </div>
             </div>
@@ -259,19 +277,31 @@ export default function TodayShiftCard({ schedule, isLoading }) {
                     </div>
 
                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 min-w-[280px] shadow-sm">
-                        <div className="flex items-center gap-2 mb-3 opacity-90">
-                            <Briefcase className="w-4 h-4 text-white" />
-                            <span className="text-xs font-bold text-white uppercase tracking-widest">Working Hours</span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                            <p className="text-3xl font-extrabold tracking-tight text-white">
-                                {formatTimeSpan(schedule.startTime)}
-                            </p>
-                            <span className="text-blue-200 mx-3">—</span>
-                            <p className="text-3xl font-extrabold tracking-tight text-white">
-                                {formatTimeSpan(schedule.endTime)}
-                            </p>
-                        </div>
+                        {!isOffDay ? (
+                            <>
+                                <div className="flex items-center gap-2 mb-3 opacity-90">
+                                    <Clock className="w-4 h-4 text-white" />
+                                    <span className="text-xs font-bold text-white uppercase tracking-widest">Working Hours</span>
+                                </div>
+                                <div className="flex items-baseline justify-between">
+                                    <p className="text-3xl font-extrabold tracking-tight text-white">
+                                        {formatTimeSpan(schedule.startTime)}
+                                    </p>
+                                    <span className="text-blue-200 mx-3">—</span>
+                                    <p className="text-3xl font-extrabold tracking-tight text-white">
+                                        {formatTimeSpan(schedule.endTime)}
+                                    </p>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full gap-1">
+                                <div className="flex items-center gap-2 mb-1 px-3 py-1 bg-white/20 rounded-full border border-white/10">
+                                    <Coffee className="w-3 h-3 text-white" />
+                                    <span className="text-xs font-bold text-white uppercase tracking-widest">Status: Day Off</span>
+                                </div>
+                                <p className="text-2xl font-black text-white italic opacity-80">Personal Time</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

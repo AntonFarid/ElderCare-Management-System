@@ -128,6 +128,7 @@ export default function ElderDetails() {
                                         : "—"} />
                                 <InfoRow icon={MapPin} label="Room Number" value={elderly.roomNumber} />
                                 <InfoRow icon={Phone} label="Emergency Contact" value={elderly.emergencyContact} />
+                                <InfoRow icon={UserCircle2} label="Connection Code" value={elderly.connectionCode} />
                                 <InfoRow icon={Stethoscope} label="Medical Conditions" value={elderly.medicalConditions} />
                                 <InfoRow label="Allergies" value={elderly.allergies} />
                                 <InfoRow label="Dietary Restrictions" value={elderly.dietaryRestrictions} />

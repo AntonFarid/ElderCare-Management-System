@@ -384,8 +384,8 @@ export default function ViewReport() {
                             <div className="relative">
                                 <div className="absolute -left-2 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full opacity-20" />
                                 <div id="ai-report-content" className="prose prose-sm dark:prose-invert max-w-none pl-4 text-gray-700 dark:text-gray-300">
-                                    {report.aiGeneratedReport ? (
-                                        <ReactMarkdown>{report.aiGeneratedReport}</ReactMarkdown>
+                                    {(report.aiGeneratedReport || "").trim() ? (
+                                        <ReactMarkdown>{report.aiGeneratedReport.trim()}</ReactMarkdown>
                                     ) : (
                                         <p className="italic">AI Analysis is being processed for this report. Please check back shortly.</p>
                                     )}

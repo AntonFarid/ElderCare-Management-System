@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -78,8 +78,8 @@ public class RegisterFamilyMemberRequest
     [Required(ErrorMessage = "Relationship to elderly is required")]
     public string Relationship { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Elderly ID is required")]
-    public int ElderlyId { get; set; }
+    [Required(ErrorMessage = "Resident Connection Code is required")]
+    public string ConnectionCode { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -89,6 +89,37 @@ public class ChangePasswordRequest
 {
     [Required(ErrorMessage = "Current password is required")]
     public string CurrentPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "New password is required")]
+    [StringLength(100, MinimumLength = 6, ErrorMessage = "New password must be at least 6 characters")]
+    public string NewPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Confirm new password is required")]
+    [Compare("NewPassword", ErrorMessage = "New passwords do not match")]
+    public string ConfirmNewPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Forgot password request DTO
+/// </summary>
+public class ForgotPasswordRequest
+{
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Reset password request DTO
+/// </summary>
+public class ResetPasswordRequest
+{
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Token is required")]
+    public string Token { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "New password is required")]
     [StringLength(100, MinimumLength = 6, ErrorMessage = "New password must be at least 6 characters")]

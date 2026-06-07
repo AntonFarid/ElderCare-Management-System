@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +10,7 @@ namespace SmartElderlyCare.Application.DTOs.Common;
 /// </summary>
 public class PaginationParameters
 {
-    private const int MaxPageSize = 50;
+    private const int MaxPageSize = 1000;
     private int _pageSize = 10;
 
     public int PageNumber { get; set; } = 1;
@@ -57,6 +57,18 @@ public class UserFilterParameters : PaginationParameters
     public string? UserType { get; set; }
     public bool? IsActive { get; set; }
     public string? Role { get; set; }
+}
+
+/// <summary>
+/// Filter parameters for visits
+/// </summary>
+public class AdminVisitFilterParameters : PaginationParameters
+{
+    public int? ElderlyId { get; set; }
+    public int? FamilyMemberId { get; set; }
+    public string? Status { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
 }
 
 /// <summary>

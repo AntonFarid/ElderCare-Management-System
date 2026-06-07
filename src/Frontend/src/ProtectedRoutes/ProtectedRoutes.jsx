@@ -6,7 +6,7 @@ export default function ProtectedRoutes({ children, allowedRoles }) {
   const token = localStorage.getItem('token');
 
   if (!token) {
-    return <Navigate to="/404" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   // If no specific roles required, just check authentication
@@ -25,11 +25,11 @@ export default function ProtectedRoutes({ children, allowedRoles }) {
       userRoles.some(role => allowedRoles.includes(role));
 
     if (!hasAccess) {
-      return <Navigate to="/404" replace />;
+      return <Navigate to="/signin" replace />;
     }
   } catch (error) {
     console.error('Token decode error:', error);
-    return <Navigate to="/404" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   return children;

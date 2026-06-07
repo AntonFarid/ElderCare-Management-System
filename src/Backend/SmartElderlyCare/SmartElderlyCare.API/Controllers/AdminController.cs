@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +6,7 @@ using SmartElderlyCare.Application.DTOs.Admin;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.Elderly;
 using SmartElderlyCare.Application.DTOs.User;
+using SmartElderlyCare.Application.DTOs.Visit;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 
@@ -467,6 +468,22 @@ public class AdminController : ControllerBase
         [FromQuery] bool isPrimary)
     {
         var response = await _adminService.UpdateFamilyRelationshipAsync(elderlyId, familyMemberId, relationship, isPrimary);
+        return Ok(response);
+    }
+
+    #endregion
+
+    #region Visits
+
+    /// <summary>
+    /// Get all visits with pagination and filtering
+    /// </summary>
+    [HttpGet("visits")]
+    [ProducesResponseType(typeof(Response<PaginatedResponse<List<VisitRequestDto>>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAllVisits([FromQuery] AdminVisitFilterParameters parameters)
+    {
+        var response = await _adminService.GetAllVisitsAsync(parameters);
         return Ok(response);
     }
 

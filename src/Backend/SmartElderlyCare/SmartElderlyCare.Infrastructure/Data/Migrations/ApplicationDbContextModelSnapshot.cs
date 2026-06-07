@@ -319,6 +319,10 @@ namespace SmartElderlyCare.Infrastructure.Data.Migrations
                     b.Property<string>("Allergies")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ConnectionCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -839,18 +843,14 @@ namespace SmartElderlyCare.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("UpdatedById")
+                    b.Property<int?>("UpdatedById")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedById");
-
                     b.HasIndex("EmployeeId");
 
                     b.HasIndex("IsDeleted");
-
-                    b.HasIndex("UpdatedById");
 
                     b.ToTable("WorkSchedules");
                 });
@@ -1041,29 +1041,13 @@ namespace SmartElderlyCare.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("SmartElderlyCare.Domain.Entities.WorkSchedule", b =>
                 {
-                    b.HasOne("SmartElderlyCare.Domain.Entities.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("SmartElderlyCare.Domain.Entities.User", "Employee")
                         .WithMany("WorkSchedules")
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SmartElderlyCare.Domain.Entities.User", "UpdatedBy")
-                        .WithMany()
-                        .HasForeignKey("UpdatedById")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CreatedBy");
-
                     b.Navigation("Employee");
-
-                    b.Navigation("UpdatedBy");
                 });
 
             modelBuilder.Entity("SmartElderlyCare.Domain.Entities.DailyReport", b =>

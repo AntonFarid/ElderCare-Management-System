@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.DailyReport;
@@ -7,8 +7,11 @@ using SmartElderlyCare.Application.DTOs.Schedule;
 using SmartElderlyCare.Application.DTOs.TeamLeader;
 using SmartElderlyCare.Application.DTOs.User;
 using SmartElderlyCare.Application.DTOs.Visit;
+using SmartElderlyCare.Application.DTOs.Elderly;
+using SmartElderlyCare.Application.DTOs.AI;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
+using SmartElderlyCare.Domain.Enums;
 
 namespace SmartElderlyCare.API.Controllers;
 
@@ -72,6 +75,22 @@ public class TeamLeaderController : ControllerBase
 
         var teamLeaderId = GetCurrentTeamLeaderId();
         var response = await _teamLeaderService.UpdateProfileAsync(teamLeaderId, updateDto);
+        return Ok(response);
+    }
+
+    #endregion
+
+    #region Elderly Management
+
+    /// <summary>
+    /// Get all elderly residents
+    /// </summary>
+    [HttpGet("elderly")]
+    [ProducesResponseType(typeof(Response<List<ElderlyDetailDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAllElderly()
+    {
+        var response = await _teamLeaderService.GetAllElderlyAsync();
         return Ok(response);
     }
 
@@ -174,9 +193,9 @@ public class TeamLeaderController : ControllerBase
     [HttpGet("reports/approval-history")]
     [ProducesResponseType(typeof(Response<List<ReportApprovalHistoryDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetApprovalHistory([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
+    public async Task<IActionResult> GetApprovalHistory([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, [FromQuery] int? elderlyId, [FromQuery] ApprovalStatus? status)
     {
-        var response = await _teamLeaderService.GetApprovalHistoryAsync(fromDate, toDate);
+        var response = await _teamLeaderService.GetApprovalHistoryAsync(fromDate, toDate, elderlyId, status);
         return Ok(response);
     }
 
@@ -226,9 +245,9 @@ public class TeamLeaderController : ControllerBase
     [HttpGet("employees/performance-summary")]
     [ProducesResponseType(typeof(Response<List<EmployeePerformanceSummaryDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetAllEmployeesPerformance([FromQuery] DateTime? date)
+    public async Task<IActionResult> GetAllEmployeesPerformance([FromQuery] DateTime? date, [FromQuery] DateTime? endDate)
     {
-        var response = await _teamLeaderService.GetAllEmployeesPerformanceAsync(date);
+        var response = await _teamLeaderService.GetAllEmployeesPerformanceAsync(date, endDate);
         return Ok(response);
     }
 
@@ -482,6 +501,25 @@ public class TeamLeaderController : ControllerBase
     public async Task<IActionResult> GetVisitRequestsSummary()
     {
         var response = await _teamLeaderService.GetVisitRequestsSummaryAsync();
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get AI diet recommendation for a resident
+    /// </summary>
+    /// <param name="elderlyId">Resident ID</param>
+    /// <returns>Diet recommendation detailing Breakfast, Lunch, Dinner and notes</returns>
+    [HttpGet("elderly/{elderlyId}/diet-recommendation")]
+    [ProducesResponseType(typeof(Response<DietRecommendationOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDietRecommendation(int elderlyId)
+    {
+        var response = await _teamLeaderService.GetDietRecommendationAsync(elderlyId);
+        if (!response.Succeeded)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, response);
+        }
         return Ok(response);
     }
 

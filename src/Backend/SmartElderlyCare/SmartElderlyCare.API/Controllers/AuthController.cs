@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -114,6 +114,42 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Request password reset token
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new Response<string>("Invalid request data"));
+        }
+
+        var response = await _authenticationService.ForgotPasswordAsync(request);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Reset password using token
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new Response<string>("Invalid request data"));
+        }
+
+        var response = await _authenticationService.ResetPasswordAsync(request);
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Logout user (Authenticated users only)
     /// </summary>
     /// <returns>Success message</returns>
@@ -158,26 +194,5 @@ public class AuthController : ControllerBase
         });
     }
 
-    /// <summary>
-    /// Get list of elderly residents for family registration (Public - no auth required)
-    /// </summary>
-    /// <returns>List of elderly with basic info</returns>
-    [HttpGet("elderly-list")]
-    [ProducesResponseType(typeof(Response<object>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetElderlyListForRegistration()
-    {
-        var parameters = new ElderlyFilterParameters { PageSize = 200 };
-        var response = await _adminService.GetAllElderlyAsync(parameters);
-        
-        // Return simplified list with just id, name, and room
-        var simplifiedList = response.Data?.Data?.Select(e => new 
-        {
-            e.Id,
-            e.FirstName,
-            e.LastName,
-            e.RoomNumber
-        }).ToList();
 
-        return Ok(new Response<object>(simplifiedList, "Elderly list retrieved successfully"));
-    }
 }

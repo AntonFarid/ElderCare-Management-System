@@ -1,7 +1,8 @@
 // src/components/NavBars/EmployeeNavbar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Bell, LogOut, HeartHandshake } from 'lucide-react';
+import TasksDropdown from '../employee/TasksDropdown';
 import { useContext } from 'react';
 import { AuthContext } from '../../contexts/AuthContext';
 
@@ -16,10 +17,32 @@ export default function EmployeeNavbar() {
         { name: 'My Residents', path: '/employee/residents' },
         { name: 'Daily Reports', path: '/employee/dailyreports' },
         { name: 'Schedule', path: '/employee/schedule' },
+        { name: 'Tasks', path: '/employee/tasks' },
         { name: 'Profile', path: '/employee/profile' },
     ];
 
     const isActive = (path) => location.pathname === path;
+
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                // We'll import notificationApiServices dynamically to avoid circular dependencies
+                const { notificationApiServices } = await import('../../services/NotificationApi');
+                const res = await notificationApiServices.getNotificationSummary();
+                if (res.data?.succeeded) {
+                    setUnreadCount(res.data.data.unreadCount || res.data.data.UnreadCount || 0);
+                }
+            } catch (error) {
+                console.error("Failed to fetch notification summary", error);
+            }
+        };
+        fetchNotifications();
+
+        window.addEventListener('notificationsRead', fetchNotifications);
+        return () => window.removeEventListener('notificationsRead', fetchNotifications);
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -64,10 +87,18 @@ export default function EmployeeNavbar() {
                     {/* Right Side Actions */}
                     <div className="hidden md:flex items-center gap-4">
                         {/* Notification Bell */}
-                        <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                        <button 
+                            onClick={() => navigate('/employee/notifications')}
+                            className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
                             <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+                            )}
                         </button>
+
+                        {/* Tasks Dropdown */}
+                        <TasksDropdown />
 
                         {/* Logout Button */}
                         <button
@@ -81,10 +112,17 @@ export default function EmployeeNavbar() {
 
                     {/* Mobile Menu Button */}
                     <div className="md:hidden flex items-center gap-2">
-                        <button className="relative p-2 text-gray-600">
+                        <button 
+                            onClick={() => navigate('/employee/notifications')}
+                            className="relative p-2 text-gray-600"
+                        >
                             <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+                            )}
                         </button>
+                        {/* Tasks Dropdown (mobile) */}
+                        <TasksDropdown />
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"

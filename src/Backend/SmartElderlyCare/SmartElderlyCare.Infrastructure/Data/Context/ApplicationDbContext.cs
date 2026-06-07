@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SmartElderlyCare.Domain.Entities;
@@ -189,6 +189,16 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
             .WithMany()
             .HasForeignKey(w => w.CreatedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<WorkSchedule>()
+            .HasOne(w => w.UpdatedBy)
+            .WithMany()
+            .HasForeignKey(w => w.UpdatedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Tell EF Core to ignore the string properties from BaseEntity
+        builder.Entity<WorkSchedule>().Ignore(w => w.CreatedBy);
+        builder.Entity<WorkSchedule>().Ignore(w => w.UpdatedBy);
 
         // User - AttendanceLog
         builder.Entity<AttendanceLog>()

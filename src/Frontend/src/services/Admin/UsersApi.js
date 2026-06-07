@@ -8,22 +8,6 @@ class UsersApiServices {
         };
     }
 
-    // Get admin profile
-    async getAdminProfile() {
-        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Admin/profile", {
-            headers: this.#getAuthHeaders()
-        });
-        return response;
-    }
-
-    // Update admin profile
-    async updateAdminProfile(profileData) {
-        const response = await axios.put(import.meta.env.VITE_BASE_URL + "Admin/profile", profileData, {
-            headers: this.#getAuthHeaders()
-        });
-        return response;
-    }
-
     // Get all users
     async getAllUsers(params) {
         const response = await axios.get(import.meta.env.VITE_BASE_URL + "Admin/users", {

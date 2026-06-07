@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+numpy
+pandas
+scikit-learn
+openpyxl
+python-dotenv
+# torch # Uncomment when ready for Deep Learning / Computer Vision

@@ -1,4 +1,4 @@
-﻿using SmartElderlyCare.Application.Wrappers;
+using SmartElderlyCare.Application.Wrappers;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
@@ -80,7 +80,8 @@ public class GlobalExceptionHandlingMiddleware
                 // In development, include exception details
                 if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
                 {
-                    responseWrapper.Errors = new List<string> { exception.Message, exception.StackTrace ?? "" };
+                    var innerExMsg = exception.InnerException != null ? " INNER EXCEPTION: " + exception.InnerException.Message : "";
+                    responseWrapper.Errors = new List<string> { exception.Message + innerExMsg, exception.StackTrace ?? "" };
                 }
                 break;
         }

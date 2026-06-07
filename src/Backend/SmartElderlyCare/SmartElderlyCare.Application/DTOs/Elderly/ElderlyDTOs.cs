@@ -1,4 +1,4 @@
-﻿using SmartElderlyCare.Application.DTOs.Common;
+using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.User;
 using System;
 using System.Collections.Generic;
@@ -23,6 +23,7 @@ public class ElderlyDto : BaseDto
     public string? RoomNumber { get; set; }
     public string? EmergencyContact { get; set; }
     public string? MedicalConditions { get; set; }
+    public string ConnectionCode { get; set; } = string.Empty;
     public bool IsActive { get; set; }
 }
 
@@ -56,6 +57,7 @@ public class EmployeeAssignmentDto
     public int EmployeeId { get; set; }
     public string EmployeeName { get; set; } = string.Empty;
     public string EmployeeEmail { get; set; } = string.Empty;
+    public string EmployeePhoneNumber { get; set; } = string.Empty;
     public int ElderlyId { get; set; }
     public string ElderlyName { get; set; } = string.Empty;
     public string RoomNumber { get; set; } = string.Empty;

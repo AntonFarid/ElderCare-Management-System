@@ -8,22 +8,6 @@ class EmployeeApiServices {
         };
     }
 
-    // Get employee profile
-    async getEmployeeProfile() {
-        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/profile", {
-            headers: this.#getAuthHeaders()
-        });
-        return response;
-    }
-
-    // Update employee profile
-    async updateEmployeeProfile(profileData) {
-        const response = await axios.put(import.meta.env.VITE_BASE_URL + "Employee/profile", profileData, {
-            headers: this.#getAuthHeaders()
-        });
-        return response;
-    }
-
     // Get all assigned elderly
     async getAssignedElderly() {
         const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/assigned-elderly", {
@@ -95,6 +79,37 @@ class EmployeeApiServices {
         const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/reports/summary", {
             headers: this.#getAuthHeaders()
         });
+        return response;
+    }
+
+    // ── Tasks ──────────────────────────────────────────────────────────────
+
+    //     Returns the list of pending (incomplete) tasks for the logged-in employee.
+    async getPendingTasks() {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/tasks/pending", {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
+    //     Returns a daily task summary (totalTasks, completedTasks, pendingTasks,
+    //     completionRate, tasks[]).
+    async getTasksSummary(date = null) {
+        const params = date ? { date } : {};
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + "Employee/tasks/summary", {
+            headers: this.#getAuthHeaders(),
+            params
+        });
+        return response;
+    }
+
+    //     Marks the specified task as completed.
+    async completeTask(taskId) {
+        const response = await axios.post(
+            import.meta.env.VITE_BASE_URL + `Employee/tasks/${taskId}/complete`,
+            {},                               // no request body needed
+            { headers: this.#getAuthHeaders() }
+        );
         return response;
     }
 

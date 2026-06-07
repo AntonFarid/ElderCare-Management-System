@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -32,6 +32,7 @@ public class AuthenticationService : IAuthenticationService
     private readonly IUnitOfWork _unitOfWork;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<AuthenticationService> _logger;
+    private readonly IEmailService _emailService;
 
     public AuthenticationService(
         UserManager<User> userManager,
@@ -39,7 +40,8 @@ public class AuthenticationService : IAuthenticationService
         SignInManager<User> signInManager,
         IUnitOfWork unitOfWork,
         IOptions<JwtSettings> jwtSettings,
-        ILogger<AuthenticationService> logger)
+        ILogger<AuthenticationService> logger,
+        IEmailService emailService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
@@ -47,6 +49,7 @@ public class AuthenticationService : IAuthenticationService
         _unitOfWork = unitOfWork;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -131,9 +134,10 @@ public class AuthenticationService : IAuthenticationService
         {
             _logger.LogInformation($"Registering new employee with email: {request.Email}");
 
-            // Check if email already exists
-            var existingUser = await _userManager.FindByEmailAsync(request.Email);
-            if (existingUser != null)
+            // Check if email already exists (including soft-deleted users)
+            var emailExists = await _userManager.Users.IgnoreQueryFilters()
+                                                .AnyAsync(u => u.Email == request.Email);
+            if (emailExists)
             {
                 throw new ValidationException("Email already registered", new Dictionary<string, string[]>
                 {
@@ -205,9 +209,10 @@ public class AuthenticationService : IAuthenticationService
         {
             _logger.LogInformation($"Registering new family member with email: {request.Email}");
 
-            // Check if email already exists
-            var existingUser = await _userManager.FindByEmailAsync(request.Email);
-            if (existingUser != null)
+            // Check if email already exists (including soft-deleted users)
+            var emailExists = await _userManager.Users.IgnoreQueryFilters()
+                                                .AnyAsync(u => u.Email == request.Email);
+            if (emailExists)
             {
                 throw new ValidationException("Email already registered", new Dictionary<string, string[]>
                 {
@@ -215,11 +220,12 @@ public class AuthenticationService : IAuthenticationService
                 });
             }
 
-            // Verify elderly exists
-            var elderly = await _unitOfWork.Repository<Elderly>().GetByIdAsync(request.ElderlyId);
+            // Verify elderly exists by ConnectionCode
+            var elderlyList = await _unitOfWork.Repository<Elderly>().GetAllAsync();
+            var elderly = elderlyList.FirstOrDefault(e => e.ConnectionCode == request.ConnectionCode);
             if (elderly == null)
             {
-                throw new NotFoundException($"Elderly with ID {request.ElderlyId} not found");
+                throw new NotFoundException($"Elderly with Connection Code {request.ConnectionCode} not found");
             }
 
             // Create new user
@@ -252,7 +258,7 @@ public class AuthenticationService : IAuthenticationService
             // Create elderly-family link
             var familyLink = new ElderlyFamilyMember
             {
-                ElderlyId = request.ElderlyId,
+                ElderlyId = elderly.Id,
                 FamilyMemberId = user.Id,
                 Relationship = request.Relationship,
                 IsPrimaryContact = false,
@@ -323,6 +329,76 @@ public class AuthenticationService : IAuthenticationService
         catch (Exception ex) when (ex is not NotFoundException && ex is not ValidationException)
         {
             _logger.LogError(ex, $"Error changing password for user {userId}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Forgot password
+    /// </summary>
+    public async Task<Response<string>> ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        try
+        {
+            _logger.LogInformation($"Forgot password requested for email: {request.Email}");
+
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+            {
+                // To prevent email enumeration, we return success even if user not found
+                return new Response<string>("If your email is registered, you will receive a reset token.");
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            
+            // Build the reset link
+            // Assuming your frontend runs on localhost:5173 for development
+            var resetLink = $"http://localhost:5173/reset-password?email={Uri.EscapeDataString(request.Email)}&token={Uri.EscapeDataString(token)}";
+
+            // Send the email
+            await _emailService.SendPasswordResetEmailAsync(request.Email, resetLink);
+
+            return new Response<string>("If your email is registered, you will receive a reset link shortly.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error during forgot password for {request.Email}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Reset password
+    /// </summary>
+    public async Task<Response<string>> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        try
+        {
+            _logger.LogInformation($"Reset password requested for email: {request.Email}");
+
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+            {
+                throw new ValidationException("Invalid email or token.");
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.ToDictionary(
+                    e => e.Code,
+                    e => new[] { e.Description }
+                );
+                throw new ValidationException("Password reset failed", errors);
+            }
+
+            _logger.LogInformation($"Password reset successfully for email: {request.Email}");
+
+            return new Response<string>("Password has been reset successfully. You can now login.");
+        }
+        catch (Exception ex) when (ex is not ValidationException)
+        {
+            _logger.LogError(ex, $"Error during reset password for {request.Email}");
             throw;
         }
     }

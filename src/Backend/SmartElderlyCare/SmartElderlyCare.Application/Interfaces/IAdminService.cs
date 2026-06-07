@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,6 +7,7 @@ using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.Elderly;
 using SmartElderlyCare.Application.DTOs.User;
 using SmartElderlyCare.Application.DTOs.Admin;
+using SmartElderlyCare.Application.DTOs.Visit;
 using SmartElderlyCare.Application.Wrappers;
 
 namespace SmartElderlyCare.Application.Interfaces;
@@ -57,6 +58,7 @@ public interface IAdminService
     Task<Response<bool>> UpdateFamilyRelationshipAsync(int elderlyId, int familyMemberId, string relationship, bool isPrimary);
 
     // System Monitoring
+    Task<Response<PaginatedResponse<List<VisitRequestDto>>>> GetAllVisitsAsync(AdminVisitFilterParameters parameters);
     Task<Response<SystemStatisticsDto>> GetSystemStatisticsAsync();
     Task<Response<List<AuditLogDto>>> GetAuditLogsAsync(DateTime? fromDate, DateTime? toDate, string? entityType, int? entityId);
     Task<Response<ActivitySummaryDto>> GetActivitySummaryAsync(DateTime date);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -53,5 +53,7 @@ public enum ShiftType
 {
     Morning = 1,    // 6 AM - 2 PM
     Afternoon = 2,  // 2 PM - 10 PM
-    Night = 3       // 10 PM - 6 AM
+    Night = 3,      // 10 PM - 6 AM
+    Overnight = 4,   // 12 AM - 8 AM
+    OffDay = 5       // For scheduled days off
 }

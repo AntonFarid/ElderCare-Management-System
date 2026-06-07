@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -57,6 +57,10 @@ public class MappingProfile : Profile
         // UpdateUserDto to User (partial update)
         CreateMap<UpdateUserDto, User>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+        // User to EmployeeDetailsDto
+        CreateMap<User, SmartElderlyCare.Application.DTOs.TeamLeader.EmployeeDetailsDto>()
+            .IncludeBase<User, UserDto>();
     }
 
     private void CreateElderlyMappings()
@@ -141,7 +145,9 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.ApprovedByRole,
                 opt => opt.MapFrom(src => src.ApprovedBy != null
                     ? src.ApprovedBy.UserType.ToString()
-                    : null));
+                    : null))
+            .ForMember(dest => dest.AdditionalNotes,
+                opt => opt.MapFrom(src => ParseAdditionalNotes(src.StructuredData)));
 
         // DailyReport to DailyReportDetailDto
         CreateMap<DailyReport, DailyReportDetailDto>()
@@ -164,6 +170,8 @@ public class MappingProfile : Profile
 
         // Report to approval history
         CreateMap<DailyReport, ReportApprovalHistoryDto>()
+            .ForMember(dest => dest.ReportId,
+                opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.ReportDate,
                 opt => opt.MapFrom(src => src.ReportDate.ToString("yyyy-MM-dd")))
             .ForMember(dest => dest.ElderlyName,
@@ -244,5 +252,24 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => false))
             .ForMember(dest => dest.CreatedAt,
                 opt => opt.Ignore());
+    }
+
+    private static string ParseAdditionalNotes(string structuredData)
+    {
+        if (string.IsNullOrEmpty(structuredData))
+            return string.Empty;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(structuredData);
+            if (doc.RootElement.TryGetProperty("AdditionalNotes", out var prop))
+            {
+                return prop.GetString() ?? string.Empty;
+            }
+        }
+        catch
+        {
+            // Ignore JSON parse errors
+        }
+        return string.Empty;
     }
 }

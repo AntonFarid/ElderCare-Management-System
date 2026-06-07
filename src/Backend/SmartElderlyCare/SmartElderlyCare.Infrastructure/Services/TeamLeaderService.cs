@@ -10,6 +10,8 @@ using SmartElderlyCare.Application.DTOs.Schedule;
 using SmartElderlyCare.Application.DTOs.TeamLeader;
 using SmartElderlyCare.Application.DTOs.User;
 using SmartElderlyCare.Application.DTOs.Visit;
+using SmartElderlyCare.Application.DTOs.Elderly;
+using SmartElderlyCare.Application.DTOs.AI;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 using SmartElderlyCare.Domain.Entities;
@@ -35,6 +37,7 @@ public class TeamLeaderService : ITeamLeaderService
     private readonly UserManager<User> _userManager;
     private readonly ApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IAiPredictionService _aiPredictionService;
 
     public TeamLeaderService(
         IUnitOfWork unitOfWork,
@@ -42,7 +45,8 @@ public class TeamLeaderService : ITeamLeaderService
         ILogger<TeamLeaderService> logger,
         UserManager<User> userManager,
         ApplicationDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IAiPredictionService aiPredictionService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
@@ -50,6 +54,7 @@ public class TeamLeaderService : ITeamLeaderService
         _userManager = userManager;
         _context = context;
         _currentUserService = currentUserService;
+        _aiPredictionService = aiPredictionService;
     }
 
     #region Profile Management
@@ -125,6 +130,39 @@ public class TeamLeaderService : ITeamLeaderService
         catch (Exception ex) when (ex is not NotFoundException && ex is not ValidationException)
         {
             _logger.LogError(ex, $"Error updating profile for team leader {teamLeaderId}");
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region Elderly Management
+
+    /// <summary>
+    /// Get all elderly residents
+    /// </summary>
+    public async Task<Response<List<ElderlyDetailDto>>> GetAllElderlyAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Getting all elderly residents for team leader");
+
+            var elderly = await _context.Elderlies
+                .Include(e => e.EmployeeAssignments)
+                    .ThenInclude(ea => ea.Employee)
+                .Include(e => e.FamilyMembers)
+                    .ThenInclude(fm => fm.FamilyMember)
+                .Where(e => !e.IsDeleted && e.IsActive)
+                .OrderBy(e => e.FirstName)
+                .ToListAsync();
+
+            var elderlyDtos = _mapper.Map<List<ElderlyDetailDto>>(elderly);
+
+            return new Response<List<ElderlyDetailDto>>(elderlyDtos, "Elderly residents retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting elderly residents for team leader");
             throw;
         }
     }
@@ -379,6 +417,7 @@ public class TeamLeaderService : ITeamLeaderService
             var reports = await _context.DailyReports
                 .Include(r => r.Elderly)
                 .Include(r => r.Employee)
+                .Include(r => r.ApprovedBy)
                 .Where(r => !r.IsDeleted)
                 .ToListAsync();
 
@@ -407,7 +446,7 @@ public class TeamLeaderService : ITeamLeaderService
     /// <summary>
     /// Get approval history for a date range
     /// </summary>
-    public async Task<Response<List<ReportApprovalHistoryDto>>> GetApprovalHistoryAsync(DateTime? fromDate, DateTime? toDate)
+    public async Task<Response<List<ReportApprovalHistoryDto>>> GetApprovalHistoryAsync(DateTime? fromDate, DateTime? toDate, int? elderlyId, ApprovalStatus? status = null)
     {
         try
         {
@@ -419,6 +458,16 @@ public class TeamLeaderService : ITeamLeaderService
                 .Include(r => r.ApprovedBy)
                 .Where(r => r.ApprovalStatus != ApprovalStatus.Pending && !r.IsDeleted)
                 .AsQueryable();
+
+            if (elderlyId.HasValue)
+            {
+                query = query.Where(r => r.ElderlyId == elderlyId.Value);
+            }
+
+            if (status.HasValue)
+            {
+                query = query.Where(r => r.ApprovalStatus == status.Value);
+            }
 
             if (fromDate.HasValue)
             {
@@ -583,8 +632,9 @@ public class TeamLeaderService : ITeamLeaderService
                 // Attendance statistics
                 DaysPresent = attendance.Count(a => a.LogoutTime.HasValue),
                 LateDays = await CalculateLateDays(employeeId, startDate, endDate),
-                AverageWorkHours = attendance.Where(a => a.LogoutTime.HasValue)
-                    .Average(a => (a.LogoutTime.Value - a.LoginTime).TotalHours),
+                AverageWorkHours = attendance.Any(a => a.LogoutTime.HasValue)
+                    ? attendance.Where(a => a.LogoutTime.HasValue).Average(a => (a.LogoutTime.Value - a.LoginTime).TotalHours)
+                    : 0,
 
                 // Recent activity
                 RecentReports = reports
@@ -615,7 +665,7 @@ public class TeamLeaderService : ITeamLeaderService
     /// <summary>
     /// Get performance summary for all employees
     /// </summary>
-    public async Task<Response<List<EmployeePerformanceSummaryDto>>> GetAllEmployeesPerformanceAsync(DateTime? date)
+    public async Task<Response<List<EmployeePerformanceSummaryDto>>> GetAllEmployeesPerformanceAsync(DateTime? date, DateTime? endDate = null)
     {
         try
         {
@@ -623,7 +673,8 @@ public class TeamLeaderService : ITeamLeaderService
 
             var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
             var egyptTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
-            var targetDate = date ?? egyptTime.Date;
+            var targetStartDate = date ?? egyptTime.Date;
+            var targetEndDate = endDate ?? targetStartDate;
             var employees = await _context.Users
                 .Where(u => u.UserType == UserType.Employee && u.IsActive && !u.IsDeleted)
                 .ToListAsync();
@@ -632,27 +683,29 @@ public class TeamLeaderService : ITeamLeaderService
 
             foreach (var employee in employees)
             {
-                // Get reports for today
+                // Get reports for date range
                 var reportsToday = await _context.DailyReports
                     .CountAsync(r => r.EmployeeId == employee.Id &&
-                                    r.ReportDate.Date == targetDate.Date &&
+                                    r.ReportDate.Date >= targetStartDate.Date &&
+                                    r.ReportDate.Date <= targetEndDate.Date &&
                                     !r.IsDeleted);
 
                 var approvedReports = await _context.DailyReports
                     .CountAsync(r => r.EmployeeId == employee.Id &&
-                                    r.ReportDate.Date == targetDate.Date &&
+                                    r.ReportDate.Date >= targetStartDate.Date &&
+                                    r.ReportDate.Date <= targetEndDate.Date &&
                                     r.ApprovalStatus == ApprovalStatus.Approved &&
                                     !r.IsDeleted);
 
-                // Get attendance for today
+                // Get attendance for end date (as current status proxy)
                 var attendanceToday = await _context.AttendanceLogs
                     .FirstOrDefaultAsync(a => a.EmployeeId == employee.Id &&
-                                             a.LoginTime.Date == targetDate.Date);
+                                             a.LoginTime.Date == targetEndDate.Date);
 
-                // Get today's schedule
+                // Get today's schedule for end date
                 var scheduleToday = await _context.WorkSchedules
                     .FirstOrDefaultAsync(s => s.EmployeeId == employee.Id &&
-                                             s.ShiftDate.Date == targetDate.Date &&
+                                             s.ShiftDate.Date == targetEndDate.Date &&
                                              !s.IsDeleted);
 
                 var status = DetermineEmployeeStatus(attendanceToday, scheduleToday);
@@ -710,22 +763,25 @@ public class TeamLeaderService : ITeamLeaderService
                 .Where(a => a.EmployeeId == employeeId && !a.IsDeleted)
                 .ToListAsync();
 
-            employeeDto.AssignedElderly = assignments.Select(a => new AssignedElderlyInfoDto
-            {
-                ElderlyId = a.ElderlyId,
-                ElderlyName = $"{a.Elderly?.FirstName} {a.Elderly?.LastName}",
-                RoomNumber = a.Elderly?.RoomNumber ?? string.Empty,
-                IsPrimary = a.IsPrimary,
-                LastReportDate = _context.DailyReports
-                    .Where(r => r.ElderlyId == a.ElderlyId && r.EmployeeId == employeeId)
-                    .OrderByDescending(r => r.ReportDate)
-                    .Select(r => (DateTime?)r.ReportDate)
-                    .FirstOrDefault(),
-                LastReportStatus = _context.DailyReports
-                    .Where(r => r.ElderlyId == a.ElderlyId && r.EmployeeId == employeeId)
-                    .OrderByDescending(r => r.ReportDate)
-                    .Select(r => r.ApprovalStatus.ToString())
-                    .FirstOrDefault() ?? "No reports"
+            // Fetch all reports for assigned elderly at once. We'll find the latest for each in-memory.
+            var elderlyIds = assignments.Select(a => a.ElderlyId).ToList();
+            var allReports = await _context.DailyReports
+                .Where(r => elderlyIds.Contains(r.ElderlyId) && r.EmployeeId == employeeId && !r.IsDeleted)
+                .OrderByDescending(r => r.ReportDate)
+                .ToListAsync();
+                             
+            employeeDto.AssignedElderly = assignments.Select(a => {
+                var lastReport = allReports.FirstOrDefault(r => r.ElderlyId == a.ElderlyId);
+
+                return new AssignedElderlyInfoDto
+                {
+                    ElderlyId = a.ElderlyId,
+                    ElderlyName = $"{a.Elderly?.FirstName} {a.Elderly?.LastName}",
+                    RoomNumber = a.Elderly?.RoomNumber ?? string.Empty,
+                    IsPrimary = a.IsPrimary,
+                    LastReportDate = lastReport?.ReportDate,
+                    LastReportStatus = lastReport != null ? lastReport.ApprovalStatus.ToString() : "No reports"
+                };
             }).ToList();
 
             // Get today's schedule and attendance
@@ -985,9 +1041,10 @@ public class TeamLeaderService : ITeamLeaderService
             var schedule = _mapper.Map<WorkSchedule>(createDto);
             schedule.CreatedById = teamLeaderId;
             schedule.CreatedAt = DateTime.UtcNow;
-            // UpdatedBy is a User navigation property on WorkSchedule, load the user entity
+            
             var teamLeaderUserForSchedule = await _context.Users.FindAsync(teamLeaderId);
             schedule.UpdatedBy = teamLeaderUserForSchedule;
+            schedule.UpdatedById = teamLeaderId;
 
             await _unitOfWork.Repository<WorkSchedule>().AddAsync(schedule);
             await _unitOfWork.CompleteAsync();
@@ -1053,9 +1110,9 @@ public class TeamLeaderService : ITeamLeaderService
             // Update schedule
             _mapper.Map(updateDto, schedule);
             schedule.UpdatedAt = DateTime.UtcNow;
-            // UpdatedBy is a User navigation property on WorkSchedule, load the user entity
             var teamLeaderUserForUpdate = await _context.Users.FindAsync(teamLeaderId);
             schedule.UpdatedBy = teamLeaderUserForUpdate;
+            schedule.UpdatedById = teamLeaderId;
 
             await _context.SaveChangesAsync();
 
@@ -1099,9 +1156,9 @@ public class TeamLeaderService : ITeamLeaderService
             schedule.IsDeleted = true;
             schedule.DeletedAt = DateTime.UtcNow;
             schedule.UpdatedAt = DateTime.UtcNow;
-            // UpdatedBy is a User navigation property on WorkSchedule, load the user entity
             var teamLeaderUserForDelete = await _context.Users.FindAsync(teamLeaderId);
             schedule.UpdatedBy = teamLeaderUserForDelete;
+            schedule.UpdatedById = teamLeaderId;
 
             await _context.SaveChangesAsync();
 
@@ -1177,10 +1234,19 @@ public class TeamLeaderService : ITeamLeaderService
                 .ToListAsync();
 
             var attendance = await _context.AttendanceLogs
-                .Where(a => a.LoginTime.Date == today.Date)
+                .Where(a => a.LogDate == DateOnly.FromDateTime(today))
                 .ToDictionaryAsync(a => a.EmployeeId);
 
             var scheduleDtos = _mapper.Map<List<WorkScheduleDto>>(schedules);
+
+            foreach (var sDto in scheduleDtos)
+            {
+                if (attendance.TryGetValue(sDto.EmployeeId, out var log))
+                {
+                    sDto.ActualStartTime = log.LoginTime;
+                    sDto.ActualEndTime = log.LogoutTime;
+                }
+            }
 
             var summary = new ScheduleSummaryDto
             {
@@ -1274,18 +1340,24 @@ public class TeamLeaderService : ITeamLeaderService
     /// </summary>
     private async Task<int> CalculateLateDays(int employeeId, DateTime startDate, DateTime endDate)
     {
-        var schedules = await _context.WorkSchedules
+        var rawSchedules = await _context.WorkSchedules
             .Where(s => s.EmployeeId == employeeId &&
                        s.ShiftDate.Date >= startDate.Date &&
                        s.ShiftDate.Date <= endDate.Date &&
                        !s.IsDeleted)
-            .ToDictionaryAsync(s => s.ShiftDate.Date);
+            .ToListAsync();
+            
+        var schedules = rawSchedules.GroupBy(s => s.ShiftDate.Date)
+            .ToDictionary(g => g.Key, g => g.First());
 
-        var attendance = await _context.AttendanceLogs
+        var rawAttendance = await _context.AttendanceLogs
             .Where(a => a.EmployeeId == employeeId &&
                        a.LoginTime.Date >= startDate.Date &&
                        a.LoginTime.Date <= endDate.Date)
-            .ToDictionaryAsync(a => a.LoginTime.Date);
+            .ToListAsync();
+            
+        var attendance = rawAttendance.GroupBy(a => a.LoginTime.Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.LoginTime).First());
 
         int lateDays = 0;
 
@@ -1651,9 +1723,9 @@ public class TeamLeaderService : ITeamLeaderService
             var recentRequests = await _context.VisitRequests
                 .Include(v => v.FamilyMember)
                 .Include(v => v.Elderly)
-                .Where(v => v.Status == VisitStatus.Pending && !v.IsDeleted)
-                .OrderBy(v => v.RequestedDate)
-                .Take(10)
+                .Where(v => !v.IsDeleted)
+                .OrderByDescending(v => v.RequestedDate)
+                .Take(50)
                 .ToListAsync();
 
             var summary = new VisitSummaryDto
@@ -1745,4 +1817,132 @@ public class TeamLeaderService : ITeamLeaderService
     }
 
     #endregion
+
+    // AI Dietary Recommendation
+    public async Task<Response<DietRecommendationOutputDto>> GetDietRecommendationAsync(int elderlyId)
+    {
+        try
+        {
+            _logger.LogInformation($"Generating AI diet recommendation for resident: {elderlyId}");
+
+            // 1. Fetch resident details
+            var resident = await _context.Elderlies
+                .FirstOrDefaultAsync(e => e.Id == elderlyId && !e.IsDeleted);
+
+            if (resident == null)
+            {
+                throw new NotFoundException($"Resident with ID {elderlyId} not found");
+            }
+
+            // Calculate age
+            int age = DateTime.Today.Year - resident.DateOfBirth.Year;
+
+            // 2. Query recent daily reports (e.g. last 7 reports)
+            var recentReports = await _context.DailyReports
+                .Include(r => r.HealthMetrics)
+                .Where(r => r.ElderlyId == elderlyId && r.ApprovalStatus == ApprovalStatus.Approved && !r.IsDeleted)
+                .OrderByDescending(r => r.ReportDate)
+                .Take(7)
+                .ToListAsync();
+
+            // Default values
+            double avgMealsEatenPercent = 100.0;
+            double recentAvgBloodSugar = 100.0;
+            double recentAvgSystolicBp = 120.0;
+
+            if (recentReports.Any())
+            {
+                var mealsEatenValues = new List<int>();
+                var bloodSugarValues = new List<int>();
+                var systolicBpValues = new List<int>();
+
+                foreach (var report in recentReports)
+                {
+                    if (report.HealthMetrics != null)
+                    {
+                        foreach (var m in report.HealthMetrics)
+                        {
+                            var name = m.MetricName?.ToLower() ?? "";
+                            var type = m.MetricType;
+                            var val = m.MetricValue;
+
+                            // Meals Eaten
+                            if (type == MetricType.Meal || name.Contains("meal"))
+                            {
+                                var cleanVal = new string(val.Where(char.IsDigit).ToArray());
+                                if (int.TryParse(cleanVal, out int parsedMeal))
+                                {
+                                    mealsEatenValues.Add(parsedMeal);
+                                }
+                            }
+
+                            // Blood Sugar & Blood Pressure are Vitals
+                            if (type == MetricType.Vital || name.Contains("sugar") || name.Contains("glucose") || name.Contains("blood pressure") || name == "bp")
+                            {
+                                if (name.Contains("sugar") || name.Contains("glucose"))
+                                {
+                                    var cleanVal = new string(val.Where(char.IsDigit).ToArray());
+                                    if (int.TryParse(cleanVal, out int parsedSugar))
+                                    {
+                                        bloodSugarValues.Add(parsedSugar);
+                                    }
+                                }
+                                else if (name.Contains("blood pressure") || name == "bp")
+                                {
+                                    var parts = val.Split('/');
+                                    if (parts.Length == 2)
+                                    {
+                                        var cleanSys = new string(parts[0].Where(char.IsDigit).ToArray());
+                                        if (int.TryParse(cleanSys, out int parsedSys))
+                                        {
+                                            systolicBpValues.Add(parsedSys);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (mealsEatenValues.Any()) avgMealsEatenPercent = mealsEatenValues.Average();
+                if (bloodSugarValues.Any()) recentAvgBloodSugar = bloodSugarValues.Average();
+                if (systolicBpValues.Any()) recentAvgSystolicBp = systolicBpValues.Average();
+            }
+
+            // 3. Compile input DTO
+            var inputDto = new DietRecommendationInputDto
+            {
+                ElderlyId = elderlyId,
+                Age = age,
+                MedicalConditions = resident.MedicalConditions ?? string.Empty,
+                Allergies = resident.Allergies ?? string.Empty,
+                DietaryRestrictions = resident.DietaryRestrictions ?? string.Empty,
+                AvgMealsEatenPercent = avgMealsEatenPercent,
+                RecentAvgBloodSugar = recentAvgBloodSugar,
+                RecentAvgSystolicBp = recentAvgSystolicBp
+            };
+
+            // 4. Call Python ML microservice
+            var recommendationResult = await _aiPredictionService.RecommendDietAsync(inputDto);
+
+            if (recommendationResult == null)
+            {
+                return new Response<DietRecommendationOutputDto>("AI Diet Recommendation service is temporarily unavailable. Please try again later.")
+                {
+                    Succeeded = false
+                };
+            }
+
+            recommendationResult.AvgMealsEatenPercent = inputDto.AvgMealsEatenPercent;
+            recommendationResult.RecentAvgBloodSugar = inputDto.RecentAvgBloodSugar;
+            recommendationResult.RecentAvgSystolicBp = inputDto.RecentAvgSystolicBp;
+
+            return new Response<DietRecommendationOutputDto>(recommendationResult, "AI Diet Recommendation generated successfully");
+        }
+        catch (Exception ex) when (ex is not NotFoundException)
+        {
+            _logger.LogError(ex, $"Error generating AI diet recommendation for resident {elderlyId}");
+            throw;
+        }
+    }
 }

@@ -1,4 +1,4 @@
-﻿using SmartElderlyCare.Application.DTOs.Authentication;
+using SmartElderlyCare.Application.DTOs.Authentication;
 using SmartElderlyCare.Application.Wrappers;
 using System;
 using System.Collections.Generic;
@@ -17,5 +17,7 @@ public interface IAuthenticationService
     Task<Response<AuthenticationResponse>> RegisterEmployeeAsync(RegisterEmployeeRequest request);
     Task<Response<AuthenticationResponse>> RegisterFamilyMemberAsync(RegisterFamilyMemberRequest request);
     Task<Response<string>> ChangePasswordAsync(ChangePasswordRequest request, int userId);
+    Task<Response<string>> ForgotPasswordAsync(ForgotPasswordRequest request);
+    Task<Response<string>> ResetPasswordAsync(ResetPasswordRequest request);
     Task<Response<string>> LogoutAsync(int userId);
 }

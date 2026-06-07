@@ -8,6 +8,33 @@ import {
 import { useNavigate } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { apiServices } from "../services/AuthApi";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const signUpSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  phoneNumber: z.string().min(1, "Phone number is required"),
+  password: z.string().min(6, "Password must be at least 6 characters")
+    .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Must have uppercase, lowercase, and number"),
+  confirmPassword: z.string().min(1, "Confirm your password"),
+  connectionCode: z.string().min(1, "Resident connection code is required"),
+  relationship: z.string().min(1, "Relationship is required").optional(),
+  customRelationship: z.string().optional()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+}).refine((data) => {
+  if (data.relationship === "Other" && (!data.customRelationship || !data.customRelationship.trim())) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please specify the relationship",
+  path: ["customRelationship"],
+});
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -16,47 +43,18 @@ export default function SignUp() {
   const [errMsg, setErrMsg] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [elderlyList, setElderlyList] = useState([]);
-  const [elderlySearch, setElderlySearch] = useState("");
-  const [showOtherRelationship, setShowOtherRelationship] = useState(false);
-
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phoneNumber: "",
-    password: "",
-    confirmPassword: "",
-    relationship: "",
-    customRelationship: "",
-    elderlyId: "",
+  const { register, handleSubmit, trigger, control, watch, formState: { errors } } = useForm({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      firstName: "", lastName: "", email: "", phoneNumber: "",
+      password: "", confirmPassword: "", relationship: "", customRelationship: "", connectionCode: ""
+    },
+    mode: "onTouched"
   });
 
-  // Fetch elderly list for the "Connect to Loved One" step
-  useEffect(() => {
-    async function fetchElderly() {
-      try {
-        const res = await apiServices.getAllElderly();
-        console.log("Elderly API response:", res.data);
-        const elders = res.data?.data || [];
-        console.log("Parsed elders:", elders);
-        setElderlyList(Array.isArray(elders) ? elders : []);
-      } catch (err) {
-        console.error("Failed to fetch elderly list:", err);
-        setElderlyList([]);
-      }
-    }
-    fetchElderly();
-  }, []);
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setErrors(prev => ({ ...prev, [field]: "" }));
-    if (field === "relationship") {
-      setShowOtherRelationship(value === "Other");
-    }
-  };
+  const watchPassword = watch("password");
+  const watchConfirm = watch("confirmPassword");
+  const watchRelationship = watch("relationship");
 
   // Password strength logic
   const getPasswordStrength = (pw) => {
@@ -75,37 +73,12 @@ export default function SignUp() {
     return { level: 100, label: "VERY STRONG", color: "success" };
   };
 
-  const passwordStrength = getPasswordStrength(formData.password);
-  const passwordsMatch = formData.password && formData.confirmPassword && formData.password === formData.confirmPassword;
+  const passwordStrength = getPasswordStrength(watchPassword);
+  const passwordsMatch = watchPassword && watchConfirm && watchPassword === watchConfirm;
 
-  const validateStep1 = () => {
-    const e = {};
-    if (!formData.firstName.trim()) e.firstName = "First name is required";
-    if (!formData.lastName.trim()) e.lastName = "Last name is required";
-    if (!formData.email.trim()) e.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = "Enter a valid email";
-    if (!formData.password) e.password = "Password is required";
-    else if (formData.password.length < 6) e.password = "Password must be at least 6 characters";
-    else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) e.password = "Must have uppercase, lowercase, and number";
-    if (!formData.confirmPassword) e.confirmPassword = "Confirm your password";
-    else if (formData.password !== formData.confirmPassword) e.confirmPassword = "Passwords do not match";
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const validateStep2 = () => {
-    const e = {};
-    if (!formData.elderlyId) e.elderlyId = "Please select a loved one";
-    if (!formData.relationship) e.relationship = "Relationship is required";
-    if (formData.relationship === "Other" && !formData.customRelationship.trim()) {
-      e.customRelationship = "Please specify the relationship";
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleNext = () => {
-    if (validateStep1()) {
+  const handleNext = async () => {
+    const isStep1Valid = await trigger(["firstName", "lastName", "email", "phoneNumber", "password", "confirmPassword"]);
+    if (isStep1Valid) {
       setStep(2);
       setErrMsg("");
     }
@@ -116,24 +89,29 @@ export default function SignUp() {
     setErrMsg("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (step === 1) { handleNext(); return; }
-    if (!validateStep2()) return;
+  const onSubmitForm = async (data) => {
+    if (step === 1) { 
+      handleNext(); 
+      return; 
+    }
+    
+    // Manual check for step 2 since we conditionally render fields
+    const isStep2Valid = await trigger(["connectionCode", "relationship", "customRelationship"]);
+    if (!isStep2Valid) return;
 
     setIsLoading(true);
     setErrMsg("");
 
     try {
       const payload = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        phoneNumber: formData.phoneNumber || undefined,
-        relationship: formData.relationship === "Other" ? formData.customRelationship : formData.relationship,
-        elderlyId: parseInt(formData.elderlyId),
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        phoneNumber: data.phoneNumber,
+        relationship: data.relationship === "Other" ? data.customRelationship : data.relationship,
+        connectionCode: data.connectionCode,
       };
 
       await apiServices.familySignUp(payload);
@@ -154,11 +132,6 @@ export default function SignUp() {
       setIsLoading(false);
     }
   };
-
-  const filteredElderly = elderlyList.filter(e => {
-    const name = `${e.firstName} ${e.lastName} ${e.roomNumber || ""}`.toLowerCase();
-    return name.includes(elderlySearch.toLowerCase());
-  });
 
   return (
     <div className="min-h-screen grid md:grid-cols-2">
@@ -206,7 +179,7 @@ export default function SignUp() {
       {/* RIGHT SIDE */}
       <div className="flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-6 md:p-8 overflow-y-auto">
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmitForm)}
           className="w-full max-w-md bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-xl space-y-5"
         >
           {/* Step Indicator */}
@@ -248,20 +221,18 @@ export default function SignUp() {
                   <Input
                     label="First Name"
                     placeholder="John"
-                    value={formData.firstName}
-                    onValueChange={(v) => handleChange("firstName", v)}
+                    {...register("firstName")}
                     isInvalid={!!errors.firstName}
-                    errorMessage={errors.firstName}
+                    errorMessage={errors.firstName?.message}
                     variant="bordered"
                     size="sm"
                   />
                   <Input
                     label="Last Name"
                     placeholder="Smith"
-                    value={formData.lastName}
-                    onValueChange={(v) => handleChange("lastName", v)}
+                    {...register("lastName")}
                     isInvalid={!!errors.lastName}
-                    errorMessage={errors.lastName}
+                    errorMessage={errors.lastName?.message}
                     variant="bordered"
                     size="sm"
                   />
@@ -271,10 +242,9 @@ export default function SignUp() {
                     label="Email Address"
                     placeholder="john.smith@email.com"
                     type="email"
-                    value={formData.email}
-                    onValueChange={(v) => handleChange("email", v)}
+                    {...register("email")}
                     isInvalid={!!errors.email}
-                    errorMessage={errors.email}
+                    errorMessage={errors.email?.message}
                     variant="bordered"
                     size="sm"
                   />
@@ -283,8 +253,9 @@ export default function SignUp() {
                   <Input
                     label="Phone Number"
                     placeholder="(555) 123-4567"
-                    value={formData.phoneNumber}
-                    onValueChange={(v) => handleChange("phoneNumber", v)}
+                    {...register("phoneNumber")}
+                    isInvalid={!!errors.phoneNumber}
+                    errorMessage={errors.phoneNumber?.message}
                     variant="bordered"
                     size="sm"
                   />
@@ -305,10 +276,9 @@ export default function SignUp() {
                   label="Create Password"
                   placeholder="Min 6 characters"
                   type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onValueChange={(v) => handleChange("password", v)}
+                  {...register("password")}
                   isInvalid={!!errors.password}
-                  errorMessage={errors.password}
+                  errorMessage={errors.password?.message}
                   variant="bordered"
                   size="sm"
                   endContent={
@@ -317,7 +287,7 @@ export default function SignUp() {
                     </button>
                   }
                 />
-                {formData.password && (
+                {watchPassword && (
                   <div className="mt-1.5">
                     <Progress value={passwordStrength.level} color={passwordStrength.color} size="sm" />
                     <p className={`text-xs mt-0.5 font-semibold text-${passwordStrength.color}`}>
@@ -330,10 +300,9 @@ export default function SignUp() {
                     label="Confirm Password"
                     placeholder="Re-enter your password"
                     type={showConfirm ? "text" : "password"}
-                    value={formData.confirmPassword}
-                    onValueChange={(v) => handleChange("confirmPassword", v)}
+                    {...register("confirmPassword")}
                     isInvalid={!!errors.confirmPassword}
-                    errorMessage={errors.confirmPassword}
+                    errorMessage={errors.confirmPassword?.message}
                     variant="bordered"
                     size="sm"
                     endContent={
@@ -349,7 +318,8 @@ export default function SignUp() {
               </div>
 
               <Button
-                type="submit"
+                type="button"
+                onPress={handleNext}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium"
                 endContent={<ArrowRightIcon className="w-4 h-4" />}
               >
@@ -370,58 +340,53 @@ export default function SignUp() {
                   </h3>
                 </div>
 
-                <Select
-                  label="Select your loved one"
-                  placeholder="Search by name or room..."
-                  selectedKeys={formData.elderlyId ? [formData.elderlyId] : []}
-                  onSelectionChange={(keys) => handleChange("elderlyId", [...keys][0] || "")}
-                  isInvalid={!!errors.elderlyId}
-                  errorMessage={errors.elderlyId}
+                <Input
+                  label="Resident Connection Code"
+                  placeholder="Enter the code provided by the administration"
+                  {...register("connectionCode")}
+                  isInvalid={!!errors.connectionCode}
+                  errorMessage={errors.connectionCode?.message}
                   variant="bordered"
                   size="sm"
-                >
-                  {filteredElderly.map((el) => (
-                    <SelectItem key={String(el.id || el.Id)} textValue={`${el.firstName} ${el.lastName}`}>
-                      <div className="flex justify-between">
-                        <span>{el.firstName} {el.lastName}</span>
-                        {el.roomNumber && <span className="text-xs text-gray-400">Room {el.roomNumber}</span>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </Select>
+                />
 
                 <div className="mt-3">
-                  <Select
-                    label="Relationship"
-                    placeholder="Select your relationship"
-                    selectedKeys={formData.relationship ? [formData.relationship] : []}
-                    onSelectionChange={(keys) => handleChange("relationship", [...keys][0] || "")}
-                    isInvalid={!!errors.relationship}
-                    errorMessage={errors.relationship}
-                    variant="bordered"
-                    size="sm"
-                  >
-                    <SelectItem key="Son">Son</SelectItem>
-                    <SelectItem key="Daughter">Daughter</SelectItem>
-                    <SelectItem key="Grandson">Grandson</SelectItem>
-                    <SelectItem key="Granddaughter">Granddaughter</SelectItem>
-                    <SelectItem key="Spouse">Spouse</SelectItem>
-                    <SelectItem key="Sibling">Sibling</SelectItem>
-                    <SelectItem key="Niece">Niece</SelectItem>
-                    <SelectItem key="Nephew">Nephew</SelectItem>
-                    <SelectItem key="Other">Other</SelectItem>
-                  </Select>
+                  <Controller
+                    name="relationship"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        label="Relationship"
+                        placeholder="Select your relationship"
+                        selectedKeys={field.value ? new Set([field.value]) : new Set()}
+                        onSelectionChange={(keys) => field.onChange([...keys][0] || "")}
+                        isInvalid={!!errors.relationship}
+                        errorMessage={errors.relationship?.message}
+                        variant="bordered"
+                        size="sm"
+                      >
+                        <SelectItem key="Son">Son</SelectItem>
+                        <SelectItem key="Daughter">Daughter</SelectItem>
+                        <SelectItem key="Grandson">Grandson</SelectItem>
+                        <SelectItem key="Granddaughter">Granddaughter</SelectItem>
+                        <SelectItem key="Spouse">Spouse</SelectItem>
+                        <SelectItem key="Sibling">Sibling</SelectItem>
+                        <SelectItem key="Niece">Niece</SelectItem>
+                        <SelectItem key="Nephew">Nephew</SelectItem>
+                        <SelectItem key="Other">Other</SelectItem>
+                      </Select>
+                    )}
+                  />
                 </div>
 
-                {showOtherRelationship && (
+                {watchRelationship === "Other" && (
                   <div className="mt-3">
                     <Input
                       label="Specify Relationship"
                       placeholder="e.g. Legal Guardian"
-                      value={formData.customRelationship}
-                      onValueChange={(v) => handleChange("customRelationship", v)}
+                      {...register("customRelationship")}
                       isInvalid={!!errors.customRelationship}
-                      errorMessage={errors.customRelationship}
+                      errorMessage={errors.customRelationship?.message}
                       variant="bordered"
                       size="sm"
                     />

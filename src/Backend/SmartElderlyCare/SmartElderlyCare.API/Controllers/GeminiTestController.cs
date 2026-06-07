@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartElderlyCare.Application.Common.Settings;
 using SmartElderlyCare.Application.DTOs.Gemini;
@@ -9,7 +9,7 @@ namespace SmartElderlyCare.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "TeamLeader,Admin")]
 public class GeminiTestController : ControllerBase
 {
     private readonly IGeminiService _geminiService;

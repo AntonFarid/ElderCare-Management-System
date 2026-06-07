@@ -17,7 +17,6 @@ const userSchema = z.object({
     confirmPassword: z.string().min(6, "Confirm password is required"),
     phoneNumber: z.string().min(1, "Phone number is required"),
     userType: z.string().min(1, "User type is required"),
-    roles: z.array(z.string()).min(1, "At least one role is required")
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
@@ -25,8 +24,7 @@ const userSchema = z.object({
 
 export default function CreateUserModal({ isOpen, onOpenChange, onClose, onCreated }) {
     const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
-        resolver: zodResolver(userSchema),
-        defaultValues: { roles: ["FamilyMember"] }
+        resolver: zodResolver(userSchema)
     });
 
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -34,7 +32,11 @@ export default function CreateUserModal({ isOpen, onOpenChange, onClose, onCreat
     const onSubmit = async (data) => {
         setIsSubmitting(true);
         try {
-            await usersApiServices.createUser(data);
+            const payload = {
+                ...data,
+                roles: [data.userType]
+            };
+            await usersApiServices.createUser(payload);
             addToast({ title: "Success", description: "User created successfully", color: "success" });
             onClose();
             reset();
@@ -100,6 +102,7 @@ export default function CreateUserModal({ isOpen, onOpenChange, onClose, onCreat
                                             label="User Type"
                                             placeholder="Select type"
                                             variant="bordered"
+                                            className="col-span-2"
                                             selectedKeys={field.value ? new Set([field.value]) : new Set()}
                                             onSelectionChange={(keys) => field.onChange([...keys][0])}
                                             isInvalid={!!errors.userType}
@@ -108,29 +111,6 @@ export default function CreateUserModal({ isOpen, onOpenChange, onClose, onCreat
                                             <SelectItem key="Admin">Admin</SelectItem>
                                             <SelectItem key="Employee">Employee</SelectItem>
                                             <SelectItem key="FamilyMember">Family Member</SelectItem>
-                                            <SelectItem key="TeamLeader">Team Leader</SelectItem>
-                                        </Select>
-                                    )}
-                                />
-
-                                {/* Roles - Multi Select */}
-                                <Controller
-                                    name="roles"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <Select
-                                            label="Roles"
-                                            placeholder="Select roles"
-                                            variant="bordered"
-                                            selectionMode="multiple"
-                                            selectedKeys={new Set(field.value)}
-                                            onSelectionChange={(keys) => field.onChange([...keys])}
-                                            isInvalid={!!errors.roles}
-                                            errorMessage={errors.roles?.message}
-                                        >
-                                            <SelectItem key="Admin">Admin</SelectItem>
-                                            <SelectItem key="FamilyMember">Family Member</SelectItem>
-                                            <SelectItem key="Employee">Employee</SelectItem>
                                             <SelectItem key="TeamLeader">Team Leader</SelectItem>
                                         </Select>
                                     )}

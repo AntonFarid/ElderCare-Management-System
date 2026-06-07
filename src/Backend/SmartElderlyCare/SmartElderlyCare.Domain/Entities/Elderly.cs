@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,6 +19,9 @@ public class Elderly : BaseEntity, IAuditableEntity
     public string? DietaryRestrictions { get; set; }
     public string? ProfileImageUrl { get; set; }
     public bool IsActive { get; set; } = true;
+
+    // Unique code for family members to connect to this resident
+    public string ConnectionCode { get; set; } = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
 
     // Audit fields
     public string CreatedBy { get; set; } = string.Empty;

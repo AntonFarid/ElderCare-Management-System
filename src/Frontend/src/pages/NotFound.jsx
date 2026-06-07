@@ -17,9 +17,12 @@ export default function NotFound() {
       if (userType === 'Admin') {
         dashboardPath = '/admin/dashboard'
         userRole = 'Admin'
-      } else if (userType === 'Employee' || userType === 'TeamLeader') {
+      } else if (userType === 'Employee') {
         dashboardPath = '/employee/dashboard'
-        userRole = userType
+        userRole = 'Employee'
+      } else if (userType === 'TeamLeader') {
+        dashboardPath = '/teamleader/dashboard'
+        userRole = 'Team Leader'
       } else if (userType === 'FamilyMember') {
         dashboardPath = '/family/home'
         userRole = 'Family Member'

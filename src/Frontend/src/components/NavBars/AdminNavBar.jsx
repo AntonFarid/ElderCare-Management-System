@@ -1,5 +1,5 @@
 // src/components/NavBars/AdminNavbar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Bell, LogOut, HeartHandshake } from 'lucide-react';
 import { useContext } from 'react';
@@ -17,11 +17,33 @@ export default function AdminNavbar() {
         { name: 'Elders Management', path: '/admin/elders' },
         { name: 'Statistics', path: '/admin/statistics' },
         { name: 'Audit Logs', path: '/admin/audit-logs' },
-        { name: 'Profile', path: '/admin/profile' },
         { name: 'Reports', path: '/admin/reports' },
+        { name: 'Visits', path: '/admin/visits' },
+        { name: 'Profile', path: '/admin/profile' },
     ];
 
     const isActive = (path) => location.pathname === path;
+
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                // We'll import notificationApiServices dynamically to avoid circular dependencies
+                const { notificationApiServices } = await import('../../services/NotificationApi');
+                const res = await notificationApiServices.getNotificationSummary();
+                if (res.data?.succeeded) {
+                    setUnreadCount(res.data.data.unreadCount || res.data.data.UnreadCount || 0);
+                }
+            } catch (error) {
+                console.error("Failed to fetch notification summary", error);
+            }
+        };
+        fetchNotifications();
+
+        window.addEventListener('notificationsRead', fetchNotifications);
+        return () => window.removeEventListener('notificationsRead', fetchNotifications);
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -66,9 +88,14 @@ export default function AdminNavbar() {
                     {/* Right Side Actions */}
                     <div className="hidden md:flex items-center gap-4">
                         {/* Notification Bell */}
-                        <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                        <button 
+                            onClick={() => navigate('/admin/notifications')}
+                            className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
                             <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+                            )}
                         </button>
 
                         {/* Logout Button */}
@@ -83,9 +110,14 @@ export default function AdminNavbar() {
 
                     {/* Mobile Menu Button */}
                     <div className="md:hidden flex items-center gap-2">
-                        <button className="relative p-2 text-gray-600">
+                        <button 
+                            onClick={() => navigate('/admin/notifications')}
+                            className="relative p-2 text-gray-600"
+                        >
                             <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+                            )}
                         </button>
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

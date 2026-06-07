@@ -32,6 +32,9 @@ builder.Services.AddRepositoryLayer(builder.Configuration);
 // Register JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
+// Register Email Settings
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
 // Register AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 
@@ -53,6 +56,9 @@ builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gem
 // Register Gemini Service (no BaseAddress needed)
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
+// Register AI Prediction Service
+builder.Services.AddHttpClient<IAiPredictionService, AiPredictionService>();
+
 // Add SignalR
 builder.Services.AddSignalR();
 
@@ -61,6 +67,9 @@ builder.Services.AddScoped<INotificationHubContext, NotificationHubContext>();
 
 // Register notification service
 builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Register email service
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Register Identity
 builder.Services.AddIdentity<User, Role>(options =>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,6 +12,7 @@ using SmartElderlyCare.Application.DTOs.Admin;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.Elderly;
 using SmartElderlyCare.Application.DTOs.User;
+using SmartElderlyCare.Application.DTOs.Visit;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 using SmartElderlyCare.Domain.Entities;
@@ -277,9 +278,10 @@ public class AdminService : IAdminService
         {
             _logger.LogInformation($"Creating new user with email: {createDto.Email}");
 
-            // Check if email already exists
-            var existingUser = await _userManager.FindByEmailAsync(createDto.Email);
-            if (existingUser != null)
+            // Check if email already exists (including soft-deleted users)
+            var emailExists = await _userManager.Users.IgnoreQueryFilters()
+                                                .AnyAsync(u => u.Email == createDto.Email);
+            if (emailExists)
             {
                 throw new ValidationException("Email already registered", new Dictionary<string, string[]>
                 {
@@ -465,6 +467,11 @@ public class AdminService : IAdminService
             user.DeletedAt = DateTime.UtcNow;
             user.UpdatedAt = DateTime.UtcNow;
             user.UpdatedBy = _currentUserService.UserId?.ToString() ?? "System";
+            
+            // Free up the email and username for future registrations
+            var ticks = DateTime.UtcNow.Ticks;
+            user.Email = $"{user.Email}_deleted_{ticks}";
+            user.UserName = user.Email;
 
             await _userManager.UpdateAsync(user);
 
@@ -1587,6 +1594,88 @@ public class AdminService : IAdminService
         catch (Exception ex) when (ex is not NotFoundException)
         {
             _logger.LogError(ex, $"Error updating family relationship: elderly {elderlyId}, family {familyMemberId}");
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region Visits
+
+    /// <summary>
+    /// Get all visits with filtering and pagination
+    /// </summary>
+    public async Task<Response<PaginatedResponse<List<VisitRequestDto>>>> GetAllVisitsAsync(AdminVisitFilterParameters parameters)
+    {
+        try
+        {
+            _logger.LogInformation("Getting all visits for admin");
+
+            var query = _context.VisitRequests
+                .Include(v => v.FamilyMember)
+                .Include(v => v.Elderly)
+                .Include(v => v.ApprovedBy)
+                .Where(v => !v.IsDeleted)
+                .AsQueryable();
+
+            // Apply filters
+            if (parameters.ElderlyId.HasValue)
+            {
+                query = query.Where(v => v.ElderlyId == parameters.ElderlyId.Value);
+            }
+
+            if (parameters.FamilyMemberId.HasValue)
+            {
+                query = query.Where(v => v.FamilyMemberId == parameters.FamilyMemberId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(parameters.Status) && 
+                Enum.TryParse<VisitStatus>(parameters.Status, true, out var status))
+            {
+                query = query.Where(v => v.Status == status);
+            }
+
+            if (parameters.FromDate.HasValue)
+            {
+                query = query.Where(v => v.RequestedDate >= parameters.FromDate.Value);
+            }
+
+            if (parameters.ToDate.HasValue)
+            {
+                var toDate = parameters.ToDate.Value.Date.AddDays(1).AddSeconds(-1);
+                query = query.Where(v => v.RequestedDate <= toDate);
+            }
+
+            // Apply sorting
+            query = parameters.SortBy?.ToLower() switch
+            {
+                "date" => parameters.SortDescending
+                    ? query.OrderByDescending(v => v.RequestedDate)
+                    : query.OrderBy(v => v.RequestedDate),
+                "status" => parameters.SortDescending
+                    ? query.OrderByDescending(v => v.Status)
+                    : query.OrderBy(v => v.Status),
+                _ => query.OrderByDescending(v => v.RequestedDate)
+            };
+
+            var totalCount = await query.CountAsync();
+
+            var visits = await query
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            var visitDtos = _mapper.Map<List<VisitRequestDto>>(visits);
+
+            var paginatedResponse = new PaginatedResponse<List<VisitRequestDto>>(
+                visitDtos, parameters.PageNumber, parameters.PageSize, totalCount);
+
+            return new Response<PaginatedResponse<List<VisitRequestDto>>>(
+                paginatedResponse, "Visits retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all visits");
             throw;
         }
     }

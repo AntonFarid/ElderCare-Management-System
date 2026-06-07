@@ -1,9 +1,9 @@
 // src/components/NavBars/FamilyNavbar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Bell, LogOut, HeartHandshake } from 'lucide-react';
-import { useContext } from 'react';
 import { AuthContext } from '../../contexts/AuthContext';
+import { familyApiServices } from '../../services/Family/FamilyApi';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -11,11 +11,31 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { setUserToken } = useContext(AuthContext);
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+
+    window.addEventListener('notificationsRead', fetchUnreadCount);
+    return () => window.removeEventListener('notificationsRead', fetchUnreadCount);
+  }, [location.pathname]); // re-fetch when navigating (e.g. after marking as read on the Notifications page)
+
+  const fetchUnreadCount = async () => {
+    try {
+      const summaryRes = await familyApiServices.getNotificationSummary();
+      if (summaryRes.data && summaryRes.data.succeeded) {
+        setUnreadCount(summaryRes.data.data.totalUnread || summaryRes.data.data.TotalUnread || summaryRes.data.data.unreadCount || summaryRes.data.data.UnreadCount || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notification summary:", error);
+    }
+  };
+
   const navigationItems = [
     { name: 'Home', path: '/family/home' },
-    { name: 'Daily Updates', path: '/family/daily-updates' },
-    { name: 'Medical Reports', path: '/family/medical-reports' },
-    { name: 'Messages', path: '/family/messages' },
+    { name: 'My Loved Ones', path: '/family/loved-ones' },
+    { name: 'Visits', path: '/family/visits' },
+    { name: 'Reports', path: '/family/dailyupdates' },
     { name: 'Profile', path: '/family/profile' },
   ];
 
@@ -64,10 +84,12 @@ export default function Navbar() {
           {/* Right Side Actions */}
           <div className="hidden md:flex items-center gap-4">
             {/* Notification Bell */}
-            <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+            <Link to="/family/notifications" className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+              )}
+            </Link>
 
             {/* Logout Button */}
             <button
@@ -81,10 +103,12 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2">
-            <button className="relative p-2 text-gray-600">
+            <Link to="/family/notifications" className="relative p-2 text-gray-600">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+              )}
+            </Link>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"

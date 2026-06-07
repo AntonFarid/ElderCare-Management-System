@@ -14,7 +14,8 @@ export default function ProtectedAuthRoutes({ children }) {
     const userType = decoded.userType || '';
 
     if (userType === 'Admin') return <Navigate to="/admin/dashboard" replace />;
-    if (userType === 'Employee' || userType === 'TeamLeader') return <Navigate to="/employee/dashboard" replace />;
+    if (userType === 'Employee') return <Navigate to="/employee/dashboard" replace />;
+    if (userType === 'TeamLeader') return <Navigate to="/teamleader/dashboard" replace />;
     if (userType === 'FamilyMember') return <Navigate to="/family/home" replace />;
   } catch (error) {
     console.error('Token decode error:', error);

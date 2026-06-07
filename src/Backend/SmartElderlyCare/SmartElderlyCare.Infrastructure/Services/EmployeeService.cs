@@ -18,6 +18,8 @@ using SmartElderlyCare.Domain.Interfaces;
 using SmartElderlyCare.Infrastructure.Data.Context;
 using System.Text;
 using System.Text.Json;
+using SmartElderlyCare.Application.DTOs.AI;
+using SmartElderlyCare.Application.DTOs.Notification;
 
 namespace SmartElderlyCare.Infrastructure.Services;
 
@@ -311,18 +313,129 @@ public class EmployeeService : IEmployeeService
     /// <summary>
     /// Background task to generate AI report
     /// </summary>
+    /// <summary>
+    /// Background task to generate AI report
+    /// </summary>
     private async Task GenerateAIReportAsync(int reportId, int employeeId, CreateDailyReportDto createDto, Elderly? elderly)
     {
         try
         {
             _logger.LogInformation($"Starting AI report generation for report {reportId}");
 
-            // Create a new scope for the background task
+            // Create a new scope for the background task to avoid ObjectDisposedException
             using var scope = _serviceProvider.CreateScope();
             var geminiService = scope.ServiceProvider.GetRequiredService<IGeminiService>();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+            var aiPredictionService = scope.ServiceProvider.GetRequiredService<IAiPredictionService>();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            // Prepare AI request
+            // 1. Parse vital and care metrics from the report
+            int heartRate = ParseMetric(createDto, "Heart Rate", -1);
+            if (heartRate == -1) heartRate = ParseMetric(createDto, "HeartRate", 75);
+
+            int systolic = 120;
+            int diastolic = 80;
+            var bpMetric = createDto.HealthMetrics.FirstOrDefault(m => 
+                m.MetricType.Contains("Blood Pressure", StringComparison.OrdinalIgnoreCase) || 
+                m.MetricName.Contains("Blood Pressure", StringComparison.OrdinalIgnoreCase) || 
+                m.MetricName.Contains("BP", StringComparison.OrdinalIgnoreCase));
+            if (bpMetric != null)
+            {
+                var parts = bpMetric.MetricValue.Split('/');
+                if (parts.Length == 2 && int.TryParse(parts[0], out int sys) && int.TryParse(parts[1], out int dia))
+                {
+                    systolic = sys;
+                    diastolic = dia;
+                }
+            }
+
+            int bloodSugar = ParseMetric(createDto, "Blood Sugar", -1);
+            if (bloodSugar == -1) bloodSugar = ParseMetric(createDto, "BloodSugar", 100);
+
+            int missedMeds = ParseMetric(createDto, "Missed Medications", -1);
+            if (missedMeds == -1) missedMeds = ParseMetric(createDto, "MissedMedications", -1);
+            if (missedMeds == -1) missedMeds = ParseMetric(createDto, "Missed Doses", 0);
+
+            int mealsEatenVal = ParseMetric(createDto, "Meals Eaten", -1);
+            if (mealsEatenVal == -1) mealsEatenVal = ParseMetric(createDto, "MealsEaten", -1);
+            int mealsEatenPercent = 100;
+            if (mealsEatenVal != -1)
+            {
+                mealsEatenPercent = mealsEatenVal > 5 ? mealsEatenVal : (mealsEatenVal switch
+                {
+                    0 => 0,
+                    1 => 33,
+                    2 => 66,
+                    3 => 100,
+                    _ => 100
+                });
+            }
+
+            // 2. Call Custom Machine Learning Model (Python FastAPI)
+            var healthRiskInput = new HealthRiskInputDto
+            {
+                ElderlyId = createDto.ElderlyId,
+                Age = elderly != null ? DateTime.Today.Year - elderly.DateOfBirth.Year : 75,
+                HeartRate = heartRate,
+                SystolicBp = systolic,
+                DiastolicBp = diastolic,
+                BloodSugar = bloodSugar,
+                BodyTemperature = ParseMetricAsDouble(createDto, "Temperature", 98.6),
+                MobilityScore = ParseMetric(createDto, "Mobility", 5),
+                SleepHours = ParseMetricAsDouble(createDto, "Sleep", 7.0),
+                MissedMedications = missedMeds,
+                MealsEatenPercent = mealsEatenPercent,
+                MoodScore = ParseMetric(createDto, "Mood", 5)
+            };
+
+            var prediction = await aiPredictionService.PredictHealthRiskAsync(healthRiskInput);
+
+            // 3. Save the ML warning and trigger notifications immediately
+            string mlWarning = string.Empty;
+            bool isHighRisk = false;
+
+            if (prediction != null && prediction.RiskLevel == "High")
+            {
+                isHighRisk = true;
+                mlWarning = $"🔴 URGENT AI WARNING: {prediction.Recommendation}\n\n";
+            }
+
+            // Update database with warning prefix or initial state immediately
+            var report = await context.DailyReports.FindAsync(reportId);
+            if (report != null)
+            {
+                report.AiGeneratedReport = mlWarning + "AI report generation in progress...";
+                await context.SaveChangesAsync();
+                _logger.LogInformation($"Initial risk status and warning saved for report {reportId}. RiskLevel: {prediction?.RiskLevel}");
+            }
+
+            // Send notifications if high risk
+            if (isHighRisk)
+            {
+                var teamLeaders = await userManager.GetUsersInRoleAsync("TeamLeader");
+                var admins = await userManager.GetUsersInRoleAsync("Admin");
+                var recipients = teamLeaders.Concat(admins)
+                    .Where(u => u.IsActive && !u.IsDeleted)
+                    .GroupBy(u => u.Id)
+                    .Select(g => g.First());
+
+                foreach (var recipient in recipients)
+                {
+                    await notificationService.CreateNotificationAsync(new CreateNotificationDto
+                    {
+                        UserId = recipient.Id,
+                        Title = "URGENT: High Risk Detected",
+                        Message = $"AI detected high health risk for {elderly?.FirstName} {elderly?.LastName}. Immediate action required.",
+                        NotificationType = NotificationType.HealthAlert.ToString(),
+                        RelatedEntityId = reportId,
+                        RelatedEntityType = "DailyReport"
+                    });
+                }
+                _logger.LogInformation($"High-risk notifications sent for report {reportId}.");
+            }
+
+            // 4. Prepare and call Gemini AI for detailed report generation
             var aiRequest = new ReportGenerationRequest
             {
                 EmployeeId = employeeId,
@@ -341,22 +454,21 @@ public class EmployeeService : IEmployeeService
                 AdditionalNotes = createDto.AdditionalNotes
             };
 
-            // Call Gemini AI
             var aiResponse = await geminiService.GenerateDailyReportAsync(aiRequest);
 
-            // Update the report with AI-generated content
-            var report = await context.DailyReports.FindAsync(reportId);
+            // 5. Update the report with final content
+            report = await context.DailyReports.FindAsync(reportId);
             if (report != null)
             {
                 if (aiResponse.Succeeded && !string.IsNullOrEmpty(aiResponse.Data))
                 {
-                    report.AiGeneratedReport = aiResponse.Data;
-                    _logger.LogInformation($"AI report successfully generated for report {reportId}");
+                    report.AiGeneratedReport = mlWarning + aiResponse.Data;
+                    _logger.LogInformation($"AI report successfully generated and saved for report {reportId}");
                 }
                 else
                 {
                     _logger.LogWarning($"AI report generation failed for report {reportId}, using fallback");
-                    report.AiGeneratedReport = GenerateFallbackAITemplate(createDto, elderly);
+                    report.AiGeneratedReport = mlWarning + GenerateFallbackAITemplate(createDto, elderly);
                 }
 
                 await context.SaveChangesAsync();
@@ -366,16 +478,21 @@ public class EmployeeService : IEmployeeService
         {
             _logger.LogError(ex, $"Error in background AI generation for report {reportId}");
 
-            // Even if AI fails, we should still have a fallback
+            // Fallback safety net
             try
             {
                 using var scope = _serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var report = await context.DailyReports.FindAsync(reportId);
                 if (report != null && (string.IsNullOrEmpty(report.AiGeneratedReport) ||
-                                       report.AiGeneratedReport == "AI report generation in progress..."))
+                                       report.AiGeneratedReport.EndsWith("AI report generation in progress...")))
                 {
-                    report.AiGeneratedReport = GenerateFallbackAITemplate(createDto, elderly);
+                    // Keep any warning prefix if it was set
+                    string existingPrefix = report.AiGeneratedReport.Contains("🔴 URGENT AI WARNING") 
+                        ? report.AiGeneratedReport.Substring(0, report.AiGeneratedReport.IndexOf("AI report generation in progress..."))
+                        : string.Empty;
+
+                    report.AiGeneratedReport = existingPrefix + GenerateFallbackAITemplate(createDto, elderly);
                     await context.SaveChangesAsync();
                 }
             }
@@ -384,6 +501,26 @@ public class EmployeeService : IEmployeeService
                 _logger.LogError(fallbackEx, $"Error setting fallback for report {reportId}");
             }
         }
+    }
+
+    private int ParseMetric(CreateDailyReportDto createDto, string metricType, int defaultValue)
+    {
+        var metric = createDto.HealthMetrics.FirstOrDefault(m => m.MetricType.Contains(metricType, StringComparison.OrdinalIgnoreCase) || m.MetricName.Contains(metricType, StringComparison.OrdinalIgnoreCase));
+        if (metric != null && int.TryParse(metric.MetricValue, out int result))
+        {
+            return result;
+        }
+        return defaultValue;
+    }
+
+    private double ParseMetricAsDouble(CreateDailyReportDto createDto, string metricType, double defaultValue)
+    {
+        var metric = createDto.HealthMetrics.FirstOrDefault(m => m.MetricType.Contains(metricType, StringComparison.OrdinalIgnoreCase) || m.MetricName.Contains(metricType, StringComparison.OrdinalIgnoreCase));
+        if (metric != null && double.TryParse(metric.MetricValue, out double result))
+        {
+            return result;
+        }
+        return defaultValue;
     }
 
     /// <summary>
@@ -661,6 +798,7 @@ public class EmployeeService : IEmployeeService
 
             var reports = await _context.DailyReports
                 .Include(r => r.Elderly)
+                .Include(r => r.ApprovedBy)
                 .Where(r => r.EmployeeId == employeeId && !r.IsDeleted)
                 .ToListAsync();
 

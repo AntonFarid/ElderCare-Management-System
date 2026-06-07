@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,10 +16,11 @@ public class WorkSchedule : BaseEntity
     public TimeSpan EndTime { get; set; }
     public ShiftType ShiftType { get; set; }
     public int CreatedById { get; set; }
+    public int? UpdatedById { get; set; }
     public string? Notes { get; set; }
 
     // Navigation properties
     public virtual User Employee { get; set; } = null!;
-    public virtual User CreatedBy { get; set; } = null!;
-    public virtual User UpdatedBy { get;set; } = null!;
+    public new virtual User CreatedBy { get; set; } = null!;
+    public new virtual User? UpdatedBy { get; set; }
 }

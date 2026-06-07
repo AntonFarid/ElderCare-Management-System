@@ -29,7 +29,6 @@ import {
     PencilIcon,
 } from "lucide-react";
 import { Input } from "@heroui/react";
-import { employeeApiServices } from "../../services/Employee/EmployeeApi";
 import { apiServices } from "../../services/AuthApi";
 import { addToast } from "@heroui/toast";
 import { useForm } from "react-hook-form";
@@ -101,7 +100,7 @@ export default function EmployeeProfile() {
     const fetchProfile = async () => {
         setIsLoading(true);
         try {
-            const response = await employeeApiServices.getEmployeeProfile();
+            const response = await apiServices.getProfile('Employee');
             setProfile(response.data.data);
         } catch (error) {
             console.error("Error fetching employee profile:", error);
@@ -134,7 +133,7 @@ export default function EmployeeProfile() {
                 isActive: profile?.isActive ?? true,
                 roles: profile?.roles ?? [],
             };
-            await employeeApiServices.updateEmployeeProfile(payload);
+            await apiServices.updateProfile('Employee', payload);
             addToast({
                 title: "Success",
                 description: "Profile updated successfully",

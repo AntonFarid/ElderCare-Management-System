@@ -5,37 +5,22 @@
 @custom-variant dark (&:is(.dark *));
 
 @layer base {
+    :root {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        line-height: 1.5;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background-color: #f8fafc;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
     button {
         @apply cursor-pointer;
     }
-
-    h1 {
-        @apply font-bold text-4xl;
-    }
-
-    h2 {
-        @apply font-bold text-3xl;
-    }
-
-    h3 {
-        @apply font-bold text-2xl;
-    }
-
-    h4 {
-        @apply font-bold text-xl;
-    }
-
-    h5 {
-        @apply font-semibold text-medium;
-    }
-
-    h6 {
-        @apply font-semibold text-sm;
-    }
-
-}
-
-body {
-  margin: 0;
-  padding: 0;
 }

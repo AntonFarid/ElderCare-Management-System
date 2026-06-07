@@ -1,4 +1,4 @@
-﻿using SmartElderlyCare.Application.DTOs.Common;
+using SmartElderlyCare.Application.DTOs.Common;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -20,6 +20,8 @@ public class WorkScheduleDto : BaseDto
     public TimeSpan EndTime { get; set; }
     public string ShiftType { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public DateTime? ActualStartTime { get; set; }
+    public DateTime? ActualEndTime { get; set; }
 }
 
 /// <summary>

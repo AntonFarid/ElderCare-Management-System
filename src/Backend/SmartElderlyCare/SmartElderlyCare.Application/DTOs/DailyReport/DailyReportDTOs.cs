@@ -1,4 +1,4 @@
-﻿using SmartElderlyCare.Application.DTOs.Common;
+using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.Elderly;
 using SmartElderlyCare.Application.DTOs.User;
 using System;
@@ -27,6 +27,7 @@ public class DailyReportDto : BaseDto
     public string? ApprovedByRole { get; set; }
     public DateTime? ApprovedDate { get; set; }
     public string? RejectionReason { get; set; }
+    public string AdditionalNotes { get; set; } = string.Empty;
     public string AiGeneratedReport { get; set; } = string.Empty;
     public List<HealthMetricDto> HealthMetrics { get; set; } = new();
 }

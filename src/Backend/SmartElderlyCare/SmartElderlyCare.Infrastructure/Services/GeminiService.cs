@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -31,6 +31,9 @@ public class GeminiService : IGeminiService
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
+
+        // Apply timeout from settings, fallback to 30 seconds
+        _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds > 0 ? _settings.TimeoutSeconds : 30);
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -367,14 +370,10 @@ public class GeminiService : IGeminiService
     /// </summary>
     private string FormatGeneratedReport(string generatedText, ReportGenerationRequest request)
     {
-        // Clean up any markdown or extra spaces
-        var report = generatedText
-            .Replace("**", "")
-            .Replace("##", "")
-            .Replace("  ", " ")
-            .Trim();
+        if (string.IsNullOrEmpty(generatedText))
+            return string.Empty;
 
-        return report;
+        return generatedText.Trim();
     }
 
     /// <summary>

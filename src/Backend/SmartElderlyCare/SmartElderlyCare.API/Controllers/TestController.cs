@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartElderlyCare.Application.Wrappers;
 using SmartElderlyCare.Domain.Entities;
