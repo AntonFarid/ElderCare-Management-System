@@ -1,0 +1,12 @@
+# Ignore large binary ML models
+*.pkl
+
+# Ignore sensitive credentials / environment variables
+.env
+
+# Ignore python cache and logs
+__pycache__/
+*.log
+
+# Ignore local virtual environment
+venv/
