@@ -1,19 +1,22 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class HealthDataInput(BaseModel):
-    elderly_id: int
-    age: Optional[int] = 75
-    heart_rate: Optional[int] = 75
-    systolic_bp: Optional[int] = 120
-    diastolic_bp: Optional[int] = 80
-    blood_sugar: Optional[int] = 100
-    body_temperature: Optional[float] = 98.6
-    mobility_score: Optional[int] = 5  # 1 (bedridden) to 10 (fully independent)
-    sleep_hours: Optional[float] = 7.0
-    missed_medications: Optional[int] = 0
-    meals_eaten_percent: Optional[int] = 100
-    mood_score: Optional[int] = 5  # 1 (severely depressed) to 10 (excellent)
+    # Required clinical parameters
+    elderly_id: int = Field(..., description="ID of the resident")
+    age: int = Field(..., ge=18, le=120, description="Age in years")
+    heart_rate: int = Field(..., ge=20, le=300, description="Heart rate in bpm")
+    systolic_bp: int = Field(..., ge=50, le=300, description="Systolic BP in mmHg")
+    diastolic_bp: int = Field(..., ge=30, le=200, description="Diastolic BP in mmHg")
+    blood_sugar: int = Field(..., ge=20, le=700, description="Blood sugar mg/dL")
+    body_temperature: float = Field(..., ge=30.0, le=115.0, description="Temp in °F or °C (Celsius supported via auto-normalization)")
+    
+    # Optional parameters with safe clinical defaults
+    mobility_score: Optional[int] = Field(5, ge=1, le=10, description="1 (bedridden) to 10 (independent)")
+    sleep_hours: Optional[float] = Field(7.0, ge=0.0, le=24.0, description="Hours slept")
+    missed_medications: Optional[int] = Field(0, ge=0, le=10, description="Number of missed doses")
+    meals_eaten_percent: Optional[int] = Field(100, ge=0, le=100, description="Percentage of meals eaten")
+    mood_score: Optional[int] = Field(5, ge=1, le=10, description="1 (poor) to 10 (excellent)")
     
 class PredictionOutput(BaseModel):
     elderly_id: int
@@ -52,13 +55,23 @@ class DietRecommendationInput(BaseModel):
 class MealItem(BaseModel):
     recipe_name: str
     description: str
-    calories: int
-    protein_g: int
-    carbs_g: int
-    fat_g: int
+    calories: int = Field(..., ge=0)
+    protein_g: int = Field(..., ge=0)
+    carbs_g: int = Field(..., ge=0)
+    fat_g: int = Field(..., ge=0)
     type: str
 
 class DietRecommendationOutput(BaseModel):
     elderly_id: int
     meals: List[MealItem]
     dietitian_notes: str
+
+class RecipeInput(BaseModel):
+    recipe_name: str
+    description: str
+    calories: int = Field(..., ge=0)
+    protein_g: int = Field(..., ge=0)
+    carbs_g: int = Field(..., ge=0)
+    fat_g: int = Field(..., ge=0)
+    type: str = Field(..., description="breakfast, lunch, or dinner")
+    tags: List[str] = Field(default=[])

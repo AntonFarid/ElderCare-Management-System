@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 from datetime import datetime
 import pandas as pd
 import csv
-from schemas import HealthDataInput, PredictionOutput, FallDetectionInput, FallDetectionOutput, DietRecommendationInput, DietRecommendationOutput, MealItem
+from typing import List
+import json
+from schemas import HealthDataInput, PredictionOutput, FallDetectionInput, FallDetectionOutput, DietRecommendationInput, DietRecommendationOutput, MealItem, RecipeInput
 
 # Configure standard Python logging
 logging.basicConfig(
@@ -67,12 +69,144 @@ else:
 # Load the trained Meal Recommender Model on startup
 meal_model_path = "meal_recommender.pkl"
 meal_model_data = None
+meal_model_lock = threading.Lock()
 
-if os.path.exists(meal_model_path):
-    meal_model_data = joblib.load(meal_model_path)
-    logger.info("Successfully loaded custom meal_recommender.pkl!")
-else:
-    logger.error("WARNING: Custom Meal Recommender Model not found. Run train_model.py first!")
+def reload_meal_model():
+    global meal_model_data
+    if os.path.exists(meal_model_path):
+        try:
+            with meal_model_lock:
+                meal_model_data = joblib.load(meal_model_path)
+            logger.info("Successfully loaded custom meal_recommender.pkl!")
+        except Exception as e:
+            logger.error(f"Error loading meal_recommender.pkl: {e}")
+    else:
+        logger.error("WARNING: Custom Meal Recommender Model not found. Run train_model.py first!")
+
+reload_meal_model()
+
+# Default recipes backup (the original 12 recipes)
+DEFAULT_RECIPES = [
+    # Breakfast
+    {
+        "recipe_name": "Antioxidant Oatmeal Bowl",
+        "description": "Warm steel-cut oats topped with fresh blueberries, chia seeds, sliced almonds, and a touch of honey.",
+        "calories": 320, "protein_g": 10, "carbs_g": 52, "fat_g": 8, "type": "breakfast",
+        "tags": ["low-sodium", "high-fiber", "vegetarian", "heart-healthy"]
+    },
+    {
+        "recipe_name": "Vegetable Egg White Frittata",
+        "description": "Fluffy baked egg whites with spinach, diced tomatoes, bell peppers, and low-fat feta cheese.",
+        "calories": 180, "protein_g": 18, "carbs_g": 8, "fat_g": 6, "type": "breakfast",
+        "tags": ["low-sugar", "diabetic-friendly", "high-protein", "low-sodium", "soft-food"]
+    },
+    {
+        "recipe_name": "Creamy Banana Avocado Smoothie",
+        "description": "Blended ripe banana, avocado, Greek yogurt, spinach, and unsweetened almond milk. Easy to swallow and highly nutritious.",
+        "calories": 290, "protein_g": 12, "carbs_g": 35, "fat_g": 11, "type": "breakfast",
+        "tags": ["soft-food", "high-potassium", "low-sodium", "vegetarian"]
+    },
+    {
+        "recipe_name": "Whole Wheat Toast with Poached Eggs",
+        "description": "Two perfectly poached eggs served on a slice of sprouted whole wheat toast with sliced tomatoes.",
+        "calories": 240, "protein_g": 14, "carbs_g": 18, "fat_g": 10, "type": "breakfast",
+        "tags": ["low-sugar", "diabetic-friendly", "high-protein", "heart-healthy"]
+    },
+    # Lunch
+    {
+        "recipe_name": "Herb-Grilled Salmon & Broccoli",
+        "description": "Rich in Omega-3s, grilled salmon fillet seasoned with dill and lemon juice, served with tender steamed broccoli.",
+        "calories": 380, "protein_g": 34, "carbs_g": 12, "fat_g": 18, "type": "lunch",
+        "tags": ["low-sodium", "low-sugar", "diabetic-friendly", "high-protein", "heart-healthy", "salmon", "fish"]
+    },
+    {
+        "recipe_name": "Golden Lentil & Vegetable Soup",
+        "description": "Slow-simmered red lentils, carrots, celery, and sweet potatoes with turmeric and ginger. Mild and soft texture.",
+        "calories": 260, "protein_g": 14, "carbs_g": 42, "fat_g": 3, "type": "lunch",
+        "tags": ["soft-food", "vegetarian", "low-sodium", "low-sugar", "high-fiber", "lentils"]
+    },
+    {
+        "recipe_name": "Quinoa & Roasted Veggie Salad",
+        "description": "Fluffy quinoa tossed with roasted zucchini, bell peppers, eggplant, parsley, and a light olive oil-lemon dressing.",
+        "calories": 310, "protein_g": 9, "carbs_g": 44, "fat_g": 10, "type": "lunch",
+        "tags": ["vegetarian", "low-sodium", "diabetic-friendly", "heart-healthy"]
+    },
+    {
+        "recipe_name": "Baked Cod with Sweet Potato Mash",
+        "description": "Mild, flaky Atlantic cod baked with herbs, served with smooth, fiber-rich sweet potato mash.",
+        "calories": 320, "protein_g": 26, "carbs_g": 38, "fat_g": 5, "type": "lunch",
+        "tags": ["soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "heart-healthy", "cod", "fish"]
+    },
+    # Dinner
+    {
+        "recipe_name": "Tender Roasted Turkey Breast & Pumpkin Purée",
+        "description": "Thinly sliced, tender roasted turkey breast served alongside smooth pumpkin purée and sautéed green beans.",
+        "calories": 340, "protein_g": 30, "carbs_g": 24, "fat_g": 8, "type": "dinner",
+        "tags": ["soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "high-protein", "turkey"]
+    },
+    {
+        "recipe_name": "Mediterranean Chickpea & Spinach Stew",
+        "description": "Flavorful, soft chickpeas cooked in a light tomato broth with fresh spinach, garlic, and extra virgin olive oil.",
+        "calories": 280, "protein_g": 11, "carbs_g": 38, "fat_g": 7, "type": "dinner",
+        "tags": ["vegetarian", "soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "chickpeas"]
+    },
+    {
+        "recipe_name": "Lemon-Garlic Chicken Breast with Quinoa Mash",
+        "description": "Tender poached chicken breast cutlets seasoned with lemon-garlic sauce, served over smooth quinoa mash.",
+        "calories": 390, "protein_g": 36, "carbs_g": 30, "fat_g": 9, "type": "dinner",
+        "tags": ["high-protein", "low-sodium", "low-sugar", "diabetic-friendly", "soft-food", "chicken"]
+    },
+    {
+        "recipe_name": "Creamy Butternut Squash Risotto",
+        "description": "Warm, creamy arborio rice cooked with butternut squash purée, baby spinach, and a sprinkle of parmesan cheese.",
+        "calories": 330, "protein_g": 8, "carbs_g": 58, "fat_g": 6, "type": "dinner",
+        "tags": ["soft-food", "vegetarian", "low-sodium", "risotto"]
+    }
+]
+
+recipes_json_path = "recipes.json"
+RECIPE_BANK = []
+
+def load_recipes_from_json():
+    global RECIPE_BANK
+    if not os.path.exists(recipes_json_path):
+        try:
+            with open(recipes_json_path, 'w', encoding='utf-8') as f:
+                json.dump(DEFAULT_RECIPES, f, indent=4, ensure_ascii=False)
+            logger.info("Created default recipes.json file.")
+        except Exception as e:
+            logger.error(f"Failed to create default recipes.json: {e}")
+            RECIPE_BANK = DEFAULT_RECIPES.copy()
+            return
+            
+    try:
+        with open(recipes_json_path, 'r', encoding='utf-8') as f:
+            RECIPE_BANK = json.load(f)
+        logger.info(f"Loaded {len(RECIPE_BANK)} recipes dynamically from recipes.json.")
+        
+        # Merge into meal recommender lookup
+        with meal_model_lock:
+            if meal_model_data is not None and 'recipe_lookup' in meal_model_data:
+                lookup = meal_model_data['recipe_lookup']
+                for recipe in RECIPE_BANK:
+                    name = recipe["recipe_name"].strip()
+                    # Update or insert into memory lookup table
+                    lookup[name] = {
+                        "calories": recipe["calories"],
+                        "protein": recipe["protein_g"],
+                        "carbs": recipe["carbs_g"],
+                        "fat": recipe["fat_g"],
+                        "description": recipe["description"],
+                        "type": recipe["type"],
+                        "tags": recipe.get("tags", [])
+                    }
+                logger.info("Successfully merged recipes.json entries into active lookup database.")
+    except Exception as e:
+        logger.error(f"Failed to load recipes.json: {e}")
+        RECIPE_BANK = DEFAULT_RECIPES.copy()
+
+load_recipes_from_json()
+
 
 @app.get("/")
 def read_root():
@@ -326,86 +460,56 @@ def detect_fall(data: FallDetectionInput, api_key: str = Depends(get_api_key)):
         alert_message=alert_message
     )
 
-# Care home healthy recipe data bank
-RECIPE_BANK = [
-    # Breakfast
-    {
-        "recipe_name": "Antioxidant Oatmeal Bowl",
-        "description": "Warm steel-cut oats topped with fresh blueberries, chia seeds, sliced almonds, and a touch of honey.",
-        "calories": 320, "protein_g": 10, "carbs_g": 52, "fat_g": 8, "type": "breakfast",
-        "tags": ["low-sodium", "high-fiber", "vegetarian", "heart-healthy"]
-    },
-    {
-        "recipe_name": "Vegetable Egg White Frittata",
-        "description": "Fluffy baked egg whites with spinach, diced tomatoes, bell peppers, and low-fat feta cheese.",
-        "calories": 180, "protein_g": 18, "carbs_g": 8, "fat_g": 6, "type": "breakfast",
-        "tags": ["low-sugar", "diabetic-friendly", "high-protein", "low-sodium", "soft-food"]
-    },
-    {
-        "recipe_name": "Creamy Banana Avocado Smoothie",
-        "description": "Blended ripe banana, avocado, Greek yogurt, spinach, and unsweetened almond milk. Easy to swallow and highly nutritious.",
-        "calories": 290, "protein_g": 12, "carbs_g": 35, "fat_g": 11, "type": "breakfast",
-        "tags": ["soft-food", "high-potassium", "low-sodium", "vegetarian"]
-    },
-    {
-        "recipe_name": "Whole Wheat Toast with Poached Eggs",
-        "description": "Two perfectly poached eggs served on a slice of sprouted whole wheat toast with sliced tomatoes.",
-        "calories": 240, "protein_g": 14, "carbs_g": 18, "fat_g": 10, "type": "breakfast",
-        "tags": ["low-sugar", "diabetic-friendly", "high-protein", "heart-healthy"]
-    },
-    
-    # Lunch
-    {
-        "recipe_name": "Herb-Grilled Salmon & Broccoli",
-        "description": "Rich in Omega-3s, grilled salmon fillet seasoned with dill and lemon juice, served with tender steamed broccoli.",
-        "calories": 380, "protein_g": 34, "carbs_g": 12, "fat_g": 18, "type": "lunch",
-        "tags": ["low-sodium", "low-sugar", "diabetic-friendly", "high-protein", "heart-healthy", "salmon", "fish"]
-    },
-    {
-        "recipe_name": "Golden Lentil & Vegetable Soup",
-        "description": "Slow-simmered red lentils, carrots, celery, and sweet potatoes with turmeric and ginger. Mild and soft texture.",
-        "calories": 260, "protein_g": 14, "carbs_g": 42, "fat_g": 3, "type": "lunch",
-        "tags": ["soft-food", "vegetarian", "low-sodium", "low-sugar", "high-fiber", "lentils"]
-    },
-    {
-        "recipe_name": "Quinoa & Roasted Veggie Salad",
-        "description": "Fluffy quinoa tossed with roasted zucchini, bell peppers, eggplant, parsley, and a light olive oil-lemon dressing.",
-        "calories": 310, "protein_g": 9, "carbs_g": 44, "fat_g": 10, "type": "lunch",
-        "tags": ["vegetarian", "low-sodium", "diabetic-friendly", "heart-healthy"]
-    },
-    {
-        "recipe_name": "Baked Cod with Sweet Potato Mash",
-        "description": "Mild, flaky Atlantic cod baked with herbs, served with smooth, fiber-rich sweet potato mash.",
-        "calories": 320, "protein_g": 26, "carbs_g": 38, "fat_g": 5, "type": "lunch",
-        "tags": ["soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "heart-healthy", "cod", "fish"]
-    },
+# Dynamic Recipe Bank: RECIPE_BANK is loaded on startup from recipes.json and managed via endpoints
+@app.get("/api/ml/recipes", response_model=List[RecipeInput])
+def get_recipes(api_key: str = Depends(get_api_key)):
+    """
+    Endpoint to retrieve the current dynamic recipe bank loaded from recipes.json.
+    """
+    logger.info("Retrieving all dynamic recipes.")
+    load_recipes_from_json() # Ensure we load the latest from disk
+    return RECIPE_BANK
 
-    # Dinner
-    {
-        "recipe_name": "Tender Roasted Turkey Breast & Pumpkin Purée",
-        "description": "Thinly sliced, tender roasted turkey breast served alongside smooth pumpkin purée and sautéed green beans.",
-        "calories": 340, "protein_g": 30, "carbs_g": 24, "fat_g": 8, "type": "dinner",
-        "tags": ["soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "high-protein", "turkey"]
-    },
-    {
-        "recipe_name": "Mediterranean Chickpea & Spinach Stew",
-        "description": "Flavorful, soft chickpeas cooked in a light tomato broth with fresh spinach, garlic, and extra virgin olive oil.",
-        "calories": 280, "protein_g": 11, "carbs_g": 38, "fat_g": 7, "type": "dinner",
-        "tags": ["vegetarian", "soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "chickpeas"]
-    },
-    {
-        "recipe_name": "Lemon-Garlic Chicken Breast with Quinoa Mash",
-        "description": "Tender poached chicken breast cutlets seasoned with lemon-garlic sauce, served over smooth quinoa mash.",
-        "calories": 390, "protein_g": 36, "carbs_g": 30, "fat_g": 9, "type": "dinner",
-        "tags": ["high-protein", "low-sodium", "low-sugar", "diabetic-friendly", "soft-food", "chicken"]
-    },
-    {
-        "recipe_name": "Creamy Butternut Squash Risotto",
-        "description": "Warm, creamy arborio rice cooked with butternut squash purée, baby spinach, and a sprinkle of parmesan cheese.",
-        "calories": 330, "protein_g": 8, "carbs_g": 58, "fat_g": 6, "type": "dinner",
-        "tags": ["soft-food", "vegetarian", "low-sodium", "risotto"]
+@app.post("/api/ml/recipes", response_model=RecipeInput)
+def add_recipe(recipe: RecipeInput, api_key: str = Depends(get_api_key)):
+    """
+    Endpoint to dynamically add a new recipe to the recipe bank.
+    Saves to recipes.json and reloads the active lookup memory.
+    """
+    logger.info(f"Adding new recipe dynamically: {recipe.recipe_name}")
+    load_recipes_from_json() # Ensure we load latest first
+    
+    # Check if recipe already exists
+    for r in RECIPE_BANK:
+        if r["recipe_name"].strip().lower() == recipe.recipe_name.strip().lower():
+            raise HTTPException(status_code=400, detail="Recipe with this name already exists.")
+            
+    # Append
+    new_recipe_dict = {
+        "recipe_name": recipe.recipe_name,
+        "description": recipe.description,
+        "calories": recipe.calories,
+        "protein_g": recipe.protein_g,
+        "carbs_g": recipe.carbs_g,
+        "fat_g": recipe.fat_g,
+        "type": recipe.type,
+        "tags": recipe.tags
     }
-]
+    RECIPE_BANK.append(new_recipe_dict)
+    
+    # Save to file
+    try:
+        with open(recipes_json_path, 'w', encoding='utf-8') as f:
+            json.dump(RECIPE_BANK, f, indent=4, ensure_ascii=False)
+        logger.info("Saved updated recipes.json to disk.")
+    except Exception as e:
+        logger.error(f"Failed to write recipes.json: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save recipe to disk.")
+        
+    # Reload in-memory lookup table
+    load_recipes_from_json()
+    
+    return recipe
 
 @app.post("/api/ml/recommend-diet", response_model=DietRecommendationOutput)
 def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api_key)):
@@ -414,11 +518,15 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
     Uses the trained Random Forest classifiers to predict meals,
     and dynamically compiles dietitian notes referencing active allergies and restrictions.
     """
-    logger.info(f"Received diet recommendation request for resident ID {data.elderly_id}")
     # 1. Fallback if model is not loaded
     if meal_model_data is None:
         raise HTTPException(status_code=500, detail="Meal Recommender Model is not loaded. Train the model first.")
 
+    with meal_model_lock:
+        model_ref = meal_model_data
+        lookup = dict(model_ref['recipe_lookup'])
+
+    logger.info(f"Received diet recommendation request for resident ID {data.elderly_id}")
     # 2. Extract inputs
     age = data.age
     allergies = [a.strip().lower() for a in data.allergies.replace(";", ",").split(",") if a.strip()]
@@ -432,7 +540,10 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
     else:
         gender = "Female"
         
-    gender_encoded = meal_model_data['le_gender'].transform([gender])[0]
+    try:
+        gender_encoded = model_ref['le_gender'].transform([gender])[0]
+    except ValueError:
+        gender_encoded = model_ref['le_gender'].transform(["Female"])[0]
 
     height = data.height if data.height is not None else 165.0
     weight = data.weight if data.weight is not None else 70.0
@@ -443,7 +554,7 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
         bmi = weight / ((height / 100) ** 2)
 
     activity = "Lightly Active"
-    activity_encoded = meal_model_data['le_activity'].transform([activity])[0]
+    activity_encoded = model_ref['le_activity'].transform([activity])[0]
 
     # Preference mapping
     preference = "Omnivore"
@@ -455,7 +566,7 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
             preference = "Vegetarian"
         elif any("fish" in r or "pesc" in r for r in rest_lower):
             preference = "Pescatarian"
-    preference_encoded = meal_model_data['le_preference'].transform([preference])[0]
+    preference_encoded = model_ref['le_preference'].transform([preference])[0]
 
     # Disease mapping
     is_diabetic = any("diabet" in c or "sugar" in c for c in conditions) or data.recent_avg_blood_sugar >= 130
@@ -483,12 +594,12 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
     }
 
     # Format as pandas DataFrame matching feature columns exactly
-    features_df = pd.DataFrame([input_features], columns=meal_model_data['features'])
+    features_df = pd.DataFrame([input_features], columns=model_ref['features'])
 
     # 4. Predict meal suggestions
-    predicted_breakfast = meal_model_data['clf_breakfast'].predict(features_df)[0]
-    predicted_lunch = meal_model_data['clf_lunch'].predict(features_df)[0]
-    predicted_dinner = meal_model_data['clf_dinner'].predict(features_df)[0]
+    predicted_breakfast = model_ref['clf_breakfast'].predict(features_df)[0]
+    predicted_lunch = model_ref['clf_lunch'].predict(features_df)[0]
+    predicted_dinner = model_ref['clf_dinner'].predict(features_df)[0]
 
     # 5. Helper function to check allergen matching and perform safe fallback
     def contains_allergen(recipe_name, allergen_list):
@@ -504,7 +615,7 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
                 return True
         return False
 
-    lookup = meal_model_data['recipe_lookup']
+    # lookup is already populated under the lock reference
 
     def get_safe_recipe(predicted_name, meal_type, allergen_list):
         if not contains_allergen(predicted_name, allergen_list):
@@ -649,3 +760,34 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
         meals=selected_meals,
         dietitian_notes="\n".join(notes_lines)
     )
+
+
+@app.post("/api/ml/retrain")
+def retrain_model(api_key: str = Depends(get_api_key)):
+    """
+    Endpoint to trigger dynamic model retraining and dataset augmentation on the fly.
+    If new recipes exist in recipes.json, it augments the training dataset and retrains the classifiers.
+    """
+    logger.info("Retrain request received. Starting dataset augmentation check and model retraining...")
+    try:
+        from train_model import train_meal_recommender
+        
+        # We run this inside the lock to make sure we don't have multiple retraining runs concurrently 
+        # or load the model while it's in a partially saved state on disk.
+        with meal_model_lock:
+            success = train_meal_recommender(augment=True)
+            
+        if not success:
+            raise HTTPException(status_code=500, detail="Retraining failed. Check service logs.")
+            
+        # Reload the newly trained model into memory
+        reload_meal_model()
+        
+        # Reload recipes from recipes.json to merge any active fields
+        load_recipes_from_json()
+        
+        logger.info("Model retrained and reloaded successfully.")
+        return {"status": "success", "message": "Meal recommendation model retrained and reloaded successfully on the fly."}
+    except Exception as e:
+        logger.error(f"Retraining endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Retraining failed: {str(e)}")

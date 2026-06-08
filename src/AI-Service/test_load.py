@@ -4,6 +4,7 @@ import json
 import sys
 import os
 import threading
+import numpy as np
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 
@@ -107,10 +108,15 @@ def run_stress_test(target_req_per_sec=50, duration_seconds=5):
         status_text = "OK" if code == 200 else ("Forbidden" if code == 403 else "Error")
         print(f"  Status {code} ({status_text}): {count} requests ({count/total_requests*100:.1f}%)")
         
+    p95 = np.percentile(latencies, 95) if total_requests > 0 else 0
+    p99 = np.percentile(latencies, 99) if total_requests > 0 else 0
+    
     print("\n--- Latency Performance (ms) ---")
     print(f"  Average Latency       : {avg_latency:.2f} ms")
     print(f"  Minimum Latency       : {min_latency:.2f} ms")
     print(f"  Maximum Latency       : {max_latency:.2f} ms")
+    print(f"  P95 Latency           : {p95:.2f} ms")
+    print(f"  P99 Latency           : {p99:.2f} ms")
     print("====================================================")
 
 if __name__ == "__main__":

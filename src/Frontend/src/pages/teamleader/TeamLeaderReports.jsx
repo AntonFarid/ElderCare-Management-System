@@ -643,73 +643,48 @@ export default function TeamLeaderReports() {
                                                             {(() => {
                                                                 const hasAiWarning = report.aiGeneratedReport && report.aiGeneratedReport.includes("🔴 URGENT AI WARNING");
                                                                 const severity = report.clinicalSeverity || "stable";
-                                                                
-                                                                if (hasAiWarning && severity === "critical") {
-                                                                    const anomalies = report.clinicalAnomalies || [];
-                                                                    const inlineText = anomalies.length > 0 
-                                                                        ? anomalies.map(anom => `${anom.icon} ${anom.text}`).join("  |  ") 
-                                                                        : "Anomalous vitals detected";
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 py-0.5 text-[11px] font-bold text-red-600 dark:text-red-400">
-                                                                            <span className="flex h-2 w-2 relative shrink-0">
-                                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-                                                                            </span>
-                                                                            <span className="line-clamp-1 truncate max-w-[260px]" title={`${inlineText}  |  🤖 AI High Risk`}>
-                                                                                {inlineText}  |  🤖 AI High Risk
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                }
+                                                                const anomalies = report.clinicalAnomalies || [];
+                                                                const hasCriticalVitals = anomalies.some(anom => anom.type === "critical" && !anom.text.toLowerCase().includes("med"));
 
-                                                                if (hasAiWarning) {
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 py-0.5 text-[11px] font-bold text-rose-600 dark:text-rose-400">
-                                                                            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shadow-sm shrink-0" />
-                                                                            <span className="line-clamp-1 truncate max-w-[260px]" title="🤖 ML Risk Pattern Flagged  |  🤖 AI High Risk">
-                                                                                🤖 ML Risk Pattern Flagged  |  🤖 AI High Risk
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                }
+                                                                let mainBadge = null;
+                                                                let anomalyPillStyle = "";
 
-                                                                if (severity === "critical") {
-                                                                    const anomalies = report.clinicalAnomalies || [];
-                                                                    const inlineText = anomalies.length > 0 
-                                                                        ? anomalies.map(anom => `${anom.icon} ${anom.text}`).join("  |  ") 
-                                                                        : "Critical vitals breached";
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-500">
-                                                                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shadow-sm shrink-0" />
-                                                                            <span className="line-clamp-1 truncate max-w-[260px]" title={inlineText}>
-                                                                                {inlineText}
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                }
-
-                                                                if (severity === "warning") {
-                                                                    const anomalies = report.clinicalAnomalies || [];
-                                                                    const inlineText = anomalies.length > 0 
-                                                                        ? anomalies.map(anom => `${anom.icon} ${anom.text}`).join("  |  ") 
-                                                                        : "Observation recommended";
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 py-0.5 text-[11px] font-medium text-yellow-600 dark:text-yellow-500">
-                                                                            <span className="h-2 w-2 rounded-full bg-yellow-500 shadow-sm shrink-0" />
-                                                                            <span className="line-clamp-1 truncate max-w-[260px]" title={inlineText}>
-                                                                                {inlineText}
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                }
-
-                                                                // Stable / Safe Vitals
-                                                                return (
-                                                                    <div className="flex items-center gap-1.5 py-0.5 text-[10px] font-medium text-emerald-600/80 dark:text-emerald-500/80">
-                                                                        <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-                                                                        <span className="line-clamp-1 truncate max-w-[260px]" title="All metrics stable. AI scan cleared.">
-                                                                            ✓ All metrics stable. AI scan cleared.
+                                                                if (hasCriticalVitals) {
+                                                                    mainBadge = (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900/30 animate-pulse shadow-sm">
+                                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-ping"></span>
+                                                                            🚨 Critical Risk
                                                                         </span>
+                                                                    );
+                                                                    anomalyPillStyle = "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200/50 dark:border-red-900/10 shadow-sm";
+                                                                } else if (anomalies.length > 0) {
+                                                                    mainBadge = (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 shadow-sm">
+                                                                            ⚠️ Warning
+                                                                        </span>
+                                                                    );
+                                                                    anomalyPillStyle = "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/10 shadow-sm";
+                                                                } else {
+                                                                    mainBadge = (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30 shadow-sm">
+                                                                            ✓ Stable
+                                                                        </span>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <div className="flex flex-wrap gap-1 items-center max-w-[280px] py-1">
+                                                                        {mainBadge}
+                                                                        {anomalies.map((anom, aIdx) => (
+                                                                            <span key={aIdx} className={anomalyPillStyle}>
+                                                                                {anom.icon} {anom.text}
+                                                                            </span>
+                                                                        ))}
+                                                                        {!hasAiWarning && severity === "stable" && anomalies.length === 0 && (
+                                                                            <span className="text-[9px] font-medium text-emerald-600/80 dark:text-emerald-500/80">
+                                                                                AI Scan Cleared
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 );
                                                             })()}

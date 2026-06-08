@@ -286,6 +286,89 @@ def test_diet_recommendation_overweight():
     assert "portion control" in body.get("dietitian_notes").lower(), "Should mention portion control/low density guidelines"
     print("PASSED")
 
+def test_dynamic_recipes():
+    print("Testing Dynamic Recipe Management (GET & POST) ...", end=" ")
+    # 1. Test GET /api/ml/recipes
+    status, initial_recipes = run_get_request("/api/ml/recipes")
+    assert status == 200, f"Expected GET status 200, got {status}"
+    assert len(initial_recipes) > 0, "Recipes bank should not be empty"
+    
+    # 2. Test POST /api/ml/recipes (Add a new recipe)
+    new_recipe = {
+        "recipe_name": "Dynamic Avocado Toast",
+        "description": "Premium mashed avocado on warm toasted gluten-free sourdough.",
+        "calories": 250,
+        "protein_g": 6,
+        "carbs_g": 24,
+        "fat_g": 14,
+        "type": "breakfast",
+        "tags": ["healthy", "avocado", "gluten-free"]
+    }
+    status, body = run_post_request("/api/ml/recipes", new_recipe)
+    # If it fails because it was already added in a previous test run, that's fine, but let's handle it
+    if status == 400 and "already exists" in body.get("detail", ""):
+        pass
+    else:
+        assert status == 200, f"Expected POST status 200, got {status} - {body}"
+        assert body.get("recipe_name") == "Dynamic Avocado Toast"
+    
+    # 3. Verify it is returned in subsequent GET requests
+    status, updated_recipes = run_get_request("/api/ml/recipes")
+    assert status == 200, f"Expected GET status 200, got {status}"
+    recipe_names = [r.get("recipe_name") for r in updated_recipes]
+    assert "Dynamic Avocado Toast" in recipe_names, "Added recipe should show up in GET recipes list"
+    print("PASSED")
+
+def test_dynamic_retraining():
+    print("Testing Dynamic Model Retraining and Dataset Augmentation ...", end=" ")
+    
+    # 1. Add a unique recipe that the model has never seen
+    new_recipe = {
+        "recipe_name": "Dynamic Spinach Curry",
+        "description": "Flavorful, soft chickpeas cooked in a light tomato broth with fresh spinach and extra virgin olive oil.",
+        "calories": 280,
+        "protein_g": 11,
+        "carbs_g": 38,
+        "fat_g": 7,
+        "type": "lunch",
+        "tags": ["vegetarian", "diabetic-friendly", "heart-healthy", "low-sodium"]
+    }
+    
+    status, body = run_post_request("/api/ml/recipes", new_recipe)
+    # 400 is fine if it was already added in a previous test run
+    if status != 200:
+        assert status == 400, f"Expected 200 or 400, got {status} - {body}"
+        
+    # 2. Trigger retraining via POST /api/ml/retrain
+    status_retrain, body_retrain = run_post_request("/api/ml/retrain", {})
+    assert status_retrain == 200, f"Expected status 200 for retrain, got {status_retrain} - {body_retrain}"
+    assert body_retrain.get("status") == "success", "Retraining response status should be success"
+    
+    # 3. Call diet recommendation with matching conditions to verify the new recipe is recommended!
+    diet_input = {
+        "elderly_id": 202,
+        "age": 75,
+        "gender": "Female",
+        "medical_conditions": "diabetes, hypertension, heart disease",
+        "allergies": "",
+        "dietary_restrictions": "vegetarian",
+        "avg_meals_eaten_percent": 80.0,
+        "recent_avg_blood_sugar": 140.0,
+        "recent_avg_systolic_bp": 145.0,
+        "weight": 65.0,
+        "height": 160.0
+    }
+    status_rec, body_rec = run_post_request("/api/ml/recommend-diet", diet_input)
+    assert status_rec == 200, f"Expected diet recommendation status 200, got {status_rec}"
+    
+    # Check that lunch recommendation is our new recipe!
+    meals = body_rec.get("meals", [])
+    lunch_meal = next((m for m in meals if m["type"] == "lunch"), None)
+    assert lunch_meal is not None, "Should have a lunch recommendation"
+    assert lunch_meal["recipe_name"] == "Dynamic Spinach Curry", f"Expected 'Dynamic Spinach Curry', got {lunch_meal['recipe_name']}"
+    
+    print("PASSED")
+
 def test_prediction_auditing():
     print("Testing Prediction Auditing (CSV file generation) ...", end=" ")
     csv_file = "prediction_history.csv"
@@ -339,6 +422,8 @@ if __name__ == "__main__":
         test_invalid_input_validation,
         test_diet_recommendation_underweight,
         test_diet_recommendation_overweight,
+        test_dynamic_recipes,
+        test_dynamic_retraining,
         test_prediction_auditing
     ]
     

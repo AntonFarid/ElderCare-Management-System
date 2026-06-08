@@ -407,30 +407,140 @@ export default function ViewReport() {
                         </CardHeader>
                         <CardBody className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {report.healthMetrics?.map((metric, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="p-4 rounded-xl border border-default-100 bg-white dark:bg-default-50 hover:shadow-sm transition-shadow duration-200"
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-bold text-blue-500 uppercase tracking-tight">{metric.metricType}</span>
-                                            <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                                                <Clock className="w-3 h-3" />
-                                                {formatTime(metric.recordedTime)}
+                                {report.healthMetrics?.map((metric, idx) => {
+                                    const type = metric.metricType?.toLowerCase() || "";
+                                    const name = metric.metricName?.toLowerCase() || "";
+                                    const value = metric.metricValue || "";
+                                    
+                                    let isAlert = false;
+                                    let alertColor = "border-default-100 bg-white dark:bg-default-50";
+                                    let alertLabel = "";
+
+                                    // 1. Blood Pressure Check
+                                    if (type.includes("blood pressure") || name.includes("blood pressure") || name === "bp") {
+                                        const bp = value.split('/');
+                                        if (bp.length === 2) {
+                                            const systolic = parseInt(bp[0]);
+                                            const diastolic = parseInt(bp[1]);
+                                            if (!isNaN(systolic) && !isNaN(diastolic)) {
+                                                if (systolic >= 160 || diastolic >= 100 || systolic <= 85 || diastolic <= 50) {
+                                                    isAlert = true;
+                                                    alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                    alertLabel = "Critical";
+                                                } else if (systolic >= 140 || diastolic >= 90 || systolic < 90 || diastolic < 60) {
+                                                    isAlert = true;
+                                                    alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                    alertLabel = "Warning";
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // 2. Oxygen Saturation Check
+                                    else if (type.includes("oxygen") || name.includes("oxygen") || name.includes("spo2") || name.includes("sat")) {
+                                        const spo2 = parseInt(value);
+                                        if (!isNaN(spo2)) {
+                                            if (spo2 < 90) {
+                                                isAlert = true;
+                                                alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                alertLabel = "Critical";
+                                            } else if (spo2 < 95) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+                                    // 3. Heart Rate Check
+                                    else if (type.includes("heart rate") || name.includes("heart rate") || name.includes("pulse") || name === "hr") {
+                                        const hr = parseInt(value);
+                                        if (!isNaN(hr)) {
+                                            if (hr >= 120 || hr <= 50) {
+                                                isAlert = true;
+                                                alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                alertLabel = "Critical";
+                                            } else if (hr >= 100 || hr <= 59) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+                                    // 4. Blood Sugar Check
+                                    else if (type.includes("blood sugar") || name.includes("sugar") || name.includes("glucose")) {
+                                        const bs = parseInt(value);
+                                        if (!isNaN(bs)) {
+                                            if (bs >= 200 || bs <= 60) {
+                                                isAlert = true;
+                                                alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                alertLabel = "Critical";
+                                            } else if (bs >= 140 || bs <= 70) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+                                    // 5. Temperature Check
+                                    else if (type.includes("temperature") || name.includes("temp")) {
+                                        const temp = parseFloat(value);
+                                        if (!isNaN(temp)) {
+                                            const isFahrenheit = temp > 50;
+                                            const isCritical = isFahrenheit ? (temp >= 101.3 || temp <= 95.0) : (temp >= 38.5 || temp <= 35.0);
+                                            const isWarning = isFahrenheit ? (temp >= 100.0 || temp <= 96.8) : (temp >= 37.8 || temp <= 36.0);
+                                            if (isCritical) {
+                                                isAlert = true;
+                                                alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                alertLabel = "Critical";
+                                            } else if (isWarning) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className={`p-4 rounded-xl border transition-all duration-200 hover:shadow-md ${alertColor}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className={`text-[10px] font-bold uppercase tracking-tight ${
+                                                    alertLabel === "Critical" ? "text-red-500" :
+                                                    alertLabel === "Warning" ? "text-amber-500" : "text-blue-500"
+                                                }`}>{metric.metricType}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {alertLabel && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm ${
+                                                            alertLabel === "Critical" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" :
+                                                            "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                                                        }`}>
+                                                            {alertLabel === "Critical" ? "🚨 Critical" : "⚠️ Warning"}
+                                                        </span>
+                                                    )}
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                                                        <Clock className="w-3 h-3" />
+                                                        {formatTime(metric.recordedTime)}
+                                                    </div>
+                                                </div>
                                             </div>
+                                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{metric.metricName}</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className={`text-2xl font-black ${
+                                                    alertLabel === "Critical" ? "text-red-600 dark:text-red-400" :
+                                                    alertLabel === "Warning" ? "text-amber-600 dark:text-amber-500" :
+                                                    "text-gray-900 dark:text-white"
+                                                }`}>{metric.metricValue}</span>
+                                                <span className="text-xs text-gray-400 font-medium">{metric.unit}</span>
+                                            </div>
+                                            {metric.notes && (
+                                                <p className="mt-3 text-xs text-gray-500 border-t border-default-100 pt-2 italic">
+                                                    {metric.notes}
+                                                </p>
+                                            )}
                                         </div>
-                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{metric.metricName}</p>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-2xl font-black text-gray-900 dark:text-white">{metric.metricValue}</span>
-                                            <span className="text-xs text-gray-400 font-medium">{metric.unit}</span>
-                                        </div>
-                                        {metric.notes && (
-                                            <p className="mt-3 text-xs text-gray-500 border-t border-default-100 pt-2 italic">
-                                                {metric.notes}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </CardBody>
                     </Card>

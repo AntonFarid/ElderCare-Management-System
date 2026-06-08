@@ -1,0 +1,226 @@
+[
+    {
+        "recipe_name": "Antioxidant Oatmeal Bowl",
+        "description": "Warm steel-cut oats topped with fresh blueberries, chia seeds, sliced almonds, and a touch of honey.",
+        "calories": 320,
+        "protein_g": 10,
+        "carbs_g": 52,
+        "fat_g": 8,
+        "type": "breakfast",
+        "tags": [
+            "low-sodium",
+            "high-fiber",
+            "vegetarian",
+            "heart-healthy"
+        ]
+    },
+    {
+        "recipe_name": "Vegetable Egg White Frittata",
+        "description": "Fluffy baked egg whites with spinach, diced tomatoes, bell peppers, and low-fat feta cheese.",
+        "calories": 180,
+        "protein_g": 18,
+        "carbs_g": 8,
+        "fat_g": 6,
+        "type": "breakfast",
+        "tags": [
+            "low-sugar",
+            "diabetic-friendly",
+            "high-protein",
+            "low-sodium",
+            "soft-food"
+        ]
+    },
+    {
+        "recipe_name": "Creamy Banana Avocado Smoothie",
+        "description": "Blended ripe banana, avocado, Greek yogurt, spinach, and unsweetened almond milk. Easy to swallow and highly nutritious.",
+        "calories": 290,
+        "protein_g": 12,
+        "carbs_g": 35,
+        "fat_g": 11,
+        "type": "breakfast",
+        "tags": [
+            "soft-food",
+            "high-potassium",
+            "low-sodium",
+            "vegetarian"
+        ]
+    },
+    {
+        "recipe_name": "Whole Wheat Toast with Poached Eggs",
+        "description": "Two perfectly poached eggs served on a slice of sprouted whole wheat toast with sliced tomatoes.",
+        "calories": 240,
+        "protein_g": 14,
+        "carbs_g": 18,
+        "fat_g": 10,
+        "type": "breakfast",
+        "tags": [
+            "low-sugar",
+            "diabetic-friendly",
+            "high-protein",
+            "heart-healthy"
+        ]
+    },
+    {
+        "recipe_name": "Herb-Grilled Salmon & Broccoli",
+        "description": "Rich in Omega-3s, grilled salmon fillet seasoned with dill and lemon juice, served with tender steamed broccoli.",
+        "calories": 380,
+        "protein_g": 34,
+        "carbs_g": 12,
+        "fat_g": 18,
+        "type": "lunch",
+        "tags": [
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "high-protein",
+            "heart-healthy",
+            "salmon",
+            "fish"
+        ]
+    },
+    {
+        "recipe_name": "Golden Lentil & Vegetable Soup",
+        "description": "Slow-simmered red lentils, carrots, celery, and sweet potatoes with turmeric and ginger. Mild and soft texture.",
+        "calories": 260,
+        "protein_g": 14,
+        "carbs_g": 42,
+        "fat_g": 3,
+        "type": "lunch",
+        "tags": [
+            "soft-food",
+            "vegetarian",
+            "low-sodium",
+            "low-sugar",
+            "high-fiber",
+            "lentils"
+        ]
+    },
+    {
+        "recipe_name": "Quinoa & Roasted Veggie Salad",
+        "description": "Fluffy quinoa tossed with roasted zucchini, bell peppers, eggplant, parsley, and a light olive oil-lemon dressing.",
+        "calories": 310,
+        "protein_g": 9,
+        "carbs_g": 44,
+        "fat_g": 10,
+        "type": "lunch",
+        "tags": [
+            "vegetarian",
+            "low-sodium",
+            "diabetic-friendly",
+            "heart-healthy"
+        ]
+    },
+    {
+        "recipe_name": "Baked Cod with Sweet Potato Mash",
+        "description": "Mild, flaky Atlantic cod baked with herbs, served with smooth, fiber-rich sweet potato mash.",
+        "calories": 320,
+        "protein_g": 26,
+        "carbs_g": 38,
+        "fat_g": 5,
+        "type": "lunch",
+        "tags": [
+            "soft-food",
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "heart-healthy",
+            "cod",
+            "fish"
+        ]
+    },
+    {
+        "recipe_name": "Tender Roasted Turkey Breast & Pumpkin Purée",
+        "description": "Thinly sliced, tender roasted turkey breast served alongside smooth pumpkin purée and sautéed green beans.",
+        "calories": 340,
+        "protein_g": 30,
+        "carbs_g": 24,
+        "fat_g": 8,
+        "type": "dinner",
+        "tags": [
+            "soft-food",
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "high-protein",
+            "turkey"
+        ]
+    },
+    {
+        "recipe_name": "Mediterranean Chickpea & Spinach Stew",
+        "description": "Flavorful, soft chickpeas cooked in a light tomato broth with fresh spinach, garlic, and extra virgin olive oil.",
+        "calories": 280,
+        "protein_g": 11,
+        "carbs_g": 38,
+        "fat_g": 7,
+        "type": "dinner",
+        "tags": [
+            "vegetarian",
+            "soft-food",
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "chickpeas"
+        ]
+    },
+    {
+        "recipe_name": "Lemon-Garlic Chicken Breast with Quinoa Mash",
+        "description": "Tender poached chicken breast cutlets seasoned with lemon-garlic sauce, served over smooth quinoa mash.",
+        "calories": 390,
+        "protein_g": 36,
+        "carbs_g": 30,
+        "fat_g": 9,
+        "type": "dinner",
+        "tags": [
+            "high-protein",
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "soft-food",
+            "chicken"
+        ]
+    },
+    {
+        "recipe_name": "Creamy Butternut Squash Risotto",
+        "description": "Warm, creamy arborio rice cooked with butternut squash purée, baby spinach, and a sprinkle of parmesan cheese.",
+        "calories": 330,
+        "protein_g": 8,
+        "carbs_g": 58,
+        "fat_g": 6,
+        "type": "dinner",
+        "tags": [
+            "soft-food",
+            "vegetarian",
+            "low-sodium",
+            "risotto"
+        ]
+    },
+    {
+        "recipe_name": "Dynamic Avocado Toast",
+        "description": "Premium mashed avocado on warm toasted gluten-free sourdough.",
+        "calories": 250,
+        "protein_g": 6,
+        "carbs_g": 24,
+        "fat_g": 14,
+        "type": "breakfast",
+        "tags": [
+            "healthy",
+            "avocado",
+            "gluten-free"
+        ]
+    },
+    {
+        "recipe_name": "Dynamic Spinach Curry",
+        "description": "Flavorful, soft chickpeas cooked in a light tomato broth with fresh spinach and extra virgin olive oil.",
+        "calories": 280,
+        "protein_g": 11,
+        "carbs_g": 38,
+        "fat_g": 7,
+        "type": "lunch",
+        "tags": [
+            "vegetarian",
+            "diabetic-friendly",
+            "heart-healthy",
+            "low-sodium"
+        ]
+    }
+]
