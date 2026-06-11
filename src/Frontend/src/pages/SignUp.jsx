@@ -142,7 +142,7 @@ export default function SignUp() {
           <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center">
             <HeartHandshake className="w-6 h-6" />
           </div>
-          <h2 className="text-3xl font-bold">SilverNest</h2>
+          <h2 className="text-3xl font-bold">Sanad</h2>
         </div>
 
         <div>

@@ -92,7 +92,7 @@ export default function ReportDetailModal({ isOpen, onOpenChange, reportId }) {
 
             const headerHtml = `
                 <div style="border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
-                    <h1 style="color: #2563eb; margin: 0; font-size: 24px;">SilverNest Care Management</h1>
+                    <h1 style="color: #2563eb; margin: 0; font-size: 24px;">Sanad Care Management</h1>
                     <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; text-transform: uppercase;">Clinical Progress Report</p>
                 </div>
                 <div style="margin-bottom: 30px;">
@@ -144,13 +144,13 @@ export default function ReportDetailModal({ isOpen, onOpenChange, reportId }) {
                 ${metricsHtml}
                 ${aiHtml}
                 <div style="margin-top: 50px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">
-                    Protocol ID: ${report.id} · Verified by ${report.approvedByName || 'SilverNest Care Team'} · Clinical Record
+                    Protocol ID: ${report.id} · Verified by ${report.approvedByName || 'Sanad Care Team'} · Clinical Record
                 </div>
             `;
 
             const opt = {
                 margin: 0.5,
-                filename: `SilverNest_Report_${new Date(report.reportDate).toISOString().split('T')[0]}.pdf`,
+                filename: `Sanad_Report_${new Date(report.reportDate).toISOString().split('T')[0]}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -273,7 +273,7 @@ export default function ReportDetailModal({ isOpen, onOpenChange, reportId }) {
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-tight">Verified Clinical Record</p>
-                                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mt-0.5">Care Team: {report.approvedByName || "SilverNest Medical Group"}</p>
+                                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mt-0.5">Care Team: {report.approvedByName || "Sanad Medical Group"}</p>
                                                 </div>
                                             </div>
                                             <div className="text-center md:text-right space-y-1">

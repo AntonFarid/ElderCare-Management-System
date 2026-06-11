@@ -36,7 +36,7 @@ export default function FamilyFooter() {
                             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg">
                                 <HeartHandshake className="w-6 h-6 text-white" />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900">SilverNest</h2>
+                            <h2 className="text-2xl font-bold text-gray-900">Sanad</h2>
                         </div>
                         <p className="text-gray-600 text-sm leading-relaxed">
                             Caring with compassion. Providing a safe and comfortable home environment with specialized medical care for your loved ones.
@@ -102,14 +102,14 @@ export default function FamilyFooter() {
                             </li>
                             <li className="flex items-center gap-2">
                                 <Phone className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                <a href="tel:1-800-SILVER-NEST" className="text-gray-600 hover:text-blue-600 transition-colors text-sm">
-                                    1-800-SILVER-NEST
+                                <a href="tel:1-800-SANAD" className="text-gray-600 hover:text-blue-600 transition-colors text-sm">
+                                    1-800-SANAD
                                 </a>
                             </li>
                             <li className="flex items-center gap-2">
                                 <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                <a href="mailto:support@silvernest.com" className="text-gray-600 hover:text-blue-600 transition-colors text-sm">
-                                    support@silvernest.com
+                                <a href="mailto:support@sanad.com" className="text-gray-600 hover:text-blue-600 transition-colors text-sm">
+                                    support@sanad.com
                                 </a>
                             </li>
                         </ul>
@@ -121,7 +121,7 @@ export default function FamilyFooter() {
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         {/* Copyright */}
                         <p className="text-gray-500 text-sm">
-                            © {currentYear} SilverNest Senior Care Management. All rights reserved.
+                            © {currentYear} Sanad Senior Care Management. All rights reserved.
                         </p>
 
                         {/* Social Icons */}

@@ -31,7 +31,7 @@ public class EmailService : IEmailService
         var email = new MimeMessage();
         email.From.Add(new MailboxAddress(_emailSettings.FromName, _emailSettings.FromEmail));
         email.To.Add(MailboxAddress.Parse(toEmail));
-        email.Subject = "Reset Your Password - SilverNest";
+        email.Subject = "Reset Your Password - Sanad";
 
         string htmlBody = $@"
         <html>
@@ -47,7 +47,7 @@ public class EmailService : IEmailService
         <body>
             <div class='container'>
                 <div class='header'>
-                    <h2>SilverNest Password Reset</h2>
+                    <h2>Sanad Password Reset</h2>
                 </div>
                 <div class='content'>
                     <p>Hello,</p>
@@ -59,7 +59,7 @@ public class EmailService : IEmailService
                     <p style='word-break: break-all; color: #2563eb;'>{resetLink}</p>
                     <p>If you did not request this reset, please ignore this email.</p>
                     <br/>
-                    <p>Best regards,<br/>The SilverNest Team</p>
+                    <p>Best regards,<br/>The Sanad Team</p>
                 </div>
             </div>
         </body>

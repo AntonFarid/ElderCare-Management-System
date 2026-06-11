@@ -1,0 +1,2552 @@
+"""
+SmartElderlyCare – Complete Graduation Project Report Generator
+Faculty of Computers and Information, Information Systems Department
+Academic Year 2025-2026
+"""
+
+from docx import Document
+from docx.shared import Pt, Inches, RGBColor, Cm
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+import copy
+import os
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPER FUNCTIONS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def set_cell_bg(cell, hex_color):
+    """Set background color of a table cell."""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), hex_color)
+    tcPr.append(shd)
+
+def set_cell_border(cell, top=None, bottom=None, left=None, right=None):
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement('w:tcBorders')
+    for side, val in [('top', top), ('bottom', bottom), ('left', left), ('right', right)]:
+        if val:
+            el = OxmlElement(f'w:{side}')
+            el.set(qn('w:val'), 'single')
+            el.set(qn('w:sz'), '6')
+            el.set(qn('w:space'), '0')
+            el.set(qn('w:color'), val)
+            tcBorders.append(el)
+    tcPr.append(tcBorders)
+
+def add_page_break(doc):
+    doc.add_page_break()
+
+def add_heading(doc, text, level=1, color=None, alignment=WD_ALIGN_PARAGRAPH.LEFT):
+    p = doc.add_heading(text, level=level)
+    p.alignment = alignment
+    if color and p.runs:
+        p.runs[0].font.color.rgb = RGBColor(*bytes.fromhex(color))
+    return p
+
+def add_paragraph(doc, text, bold=False, italic=False, size=11, alignment=WD_ALIGN_PARAGRAPH.LEFT, color=None, space_before=0, space_after=6):
+    para = doc.add_paragraph()
+    para.alignment = alignment
+    para.paragraph_format.space_before = Pt(space_before)
+    para.paragraph_format.space_after = Pt(space_after)
+    run = para.add_run(text)
+    run.bold = bold
+    run.italic = italic
+    run.font.size = Pt(size)
+    if color:
+        run.font.color.rgb = RGBColor(*bytes.fromhex(color))
+    return para
+
+def add_styled_table(doc, headers, rows, header_color='1E3A5F', alt_color='EBF0F8'):
+    """Add a nicely styled table with header row."""
+    table = doc.add_table(rows=1 + len(rows), cols=len(headers))
+    table.style = 'Table Grid'
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # Header row
+    hdr_cells = table.rows[0].cells
+    for i, h in enumerate(headers):
+        hdr_cells[i].text = h
+        hdr_cells[i].paragraphs[0].runs[0].bold = True
+        hdr_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        hdr_cells[i].paragraphs[0].runs[0].font.size = Pt(10)
+        hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_cell_bg(hdr_cells[i], header_color)
+
+    # Data rows
+    for ri, row_data in enumerate(rows):
+        row_cells = table.rows[ri + 1].cells
+        bg = alt_color if ri % 2 == 0 else 'FFFFFF'
+        for ci, val in enumerate(row_data):
+            row_cells[ci].text = str(val)
+            row_cells[ci].paragraphs[0].runs[0].font.size = Pt(10)
+            set_cell_bg(row_cells[ci], bg)
+
+    doc.add_paragraph()
+    return table
+
+def add_bullet(doc, text, level=0, bold_prefix=None):
+    para = doc.add_paragraph(style='List Bullet')
+    para.paragraph_format.space_after = Pt(4)
+    if bold_prefix:
+        run = para.add_run(bold_prefix)
+        run.bold = True
+        run.font.size = Pt(11)
+        run2 = para.add_run(text)
+        run2.font.size = Pt(11)
+    else:
+        run = para.add_run(text)
+        run.font.size = Pt(11)
+
+def add_info_box(doc, title, content, border_color='1E3A5F'):
+    """Add a styled information box using a single-cell table."""
+    table = doc.add_table(rows=1, cols=1)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = table.rows[0].cells[0]
+    
+    p = cell.add_paragraph()
+    run = p.add_run(f"ℹ  {title}")
+    run.bold = True
+    run.font.size = Pt(11)
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+    
+    p2 = cell.add_paragraph(content)
+    p2.runs[0].font.size = Pt(10)
+    
+    set_cell_bg(cell, 'EBF0F8')
+    doc.add_paragraph()
+
+def set_doc_margins(doc, top=1.0, bottom=1.0, left=1.25, right=1.25):
+    section = doc.sections[0]
+    section.top_margin = Inches(top)
+    section.bottom_margin = Inches(bottom)
+    section.left_margin = Inches(left)
+    section.right_margin = Inches(right)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DOCUMENT CREATION
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_report():
+    doc = Document()
+    set_doc_margins(doc, 1.0, 1.0, 1.25, 1.25)
+
+    # ── Customize default styles ──────────────────────────────────────────────
+    style = doc.styles['Normal']
+    style.font.name = 'Calibri'
+    style.font.size = Pt(11)
+
+    for i in range(1, 5):
+        h_style = doc.styles[f'Heading {i}']
+        h_style.font.name = 'Calibri'
+        h_style.font.bold = True
+        h_style.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TITLE PAGE
+    # ══════════════════════════════════════════════════════════════════════════
+    # University banner
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("بسم الله الرحمن الرحيم")
+    run.font.size = Pt(16)
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    doc.add_paragraph()
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Faculty of Computers and Information")
+    run.font.size = Pt(20)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Department of Information Systems")
+    run.font.size = Pt(16)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x34, 0x5C, 0x8E)
+
+    doc.add_paragraph()
+    doc.add_paragraph()
+
+    # Decorative line
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("─" * 55)
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("GRADUATION PROJECT REPORT")
+    run.font.size = Pt(14)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x34, 0x5C, 0x8E)
+
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("SmartElderlyCare")
+    run.font.size = Pt(34)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("(SilverNest Elder Care Management System)")
+    run.font.size = Pt(14)
+    run.italic = True
+    run.font.color.rgb = RGBColor(0x34, 0x5C, 0x8E)
+
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("─" * 55)
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    doc.add_paragraph()
+    doc.add_paragraph()
+
+    # Team members table
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Prepared by:")
+    run.font.size = Pt(14)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    team_members = [
+        ["1", "Anton Farid Maurice", "20220084"],
+        ["2", "Haidy Medhat Azer", "20220541"],
+        ["3", "Maryam Elghazaly Abdelkader", "20220461"],
+        ["4", "Mahmoud Mohammed Mahmoud Elbarbary", "20220449"],
+        ["5", "Abdallah Essam Mohammed", "20220550"],
+        ["6", "Abdelrhman Reda Sayed", "20220258"],
+    ]
+
+    table = doc.add_table(rows=len(team_members) + 1, cols=3)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.style = 'Table Grid'
+
+    headers = ["#", "Name", "Student ID"]
+    hdr_row = table.rows[0].cells
+    for i, h in enumerate(headers):
+        hdr_row[i].text = h
+        hdr_row[i].paragraphs[0].runs[0].bold = True
+        hdr_row[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        hdr_row[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_cell_bg(hdr_row[i], '1E3A5F')
+
+    for ri, member in enumerate(team_members):
+        row_cells = table.rows[ri + 1].cells
+        bg = 'EBF0F8' if ri % 2 == 0 else 'FFFFFF'
+        for ci, val in enumerate(member):
+            row_cells[ci].text = val
+            row_cells[ci].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            set_cell_bg(row_cells[ci], bg)
+
+    doc.add_paragraph()
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Under the Supervision of:")
+    run.font.size = Pt(13)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Dr. Mai El Defrawi")
+    run.font.size = Pt(15)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x34, 0x5C, 0x8E)
+
+    doc.add_paragraph()
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("Academic Year: 2025 – 2026")
+    run.font.size = Pt(14)
+    run.bold = True
+    run.font.color.rgb = RGBColor(0x1E, 0x3A, 0x5F)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACKNOWLEDGEMENTS
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Acknowledgements", 1)
+    add_paragraph(doc, """We would like to express our sincere gratitude and deepest appreciation to all those who have contributed to the successful completion of this graduation project.
+
+First and foremost, we extend our heartfelt thanks to our academic supervisor, Dr. Mai El Defrawi, whose expert guidance, invaluable feedback, and constant encouragement throughout every phase of this project have been indispensable. Her professional insights and unwavering dedication to academic excellence have shaped this work tremendously.
+
+We are also deeply grateful to the Faculty of Computers and Information at our university, and to the Department of Information Systems, for providing us with the academic foundation, resources, and environment necessary to undertake a project of this scope and complexity.
+
+Our sincere thanks go to our families for their endless patience, moral support, and encouragement during the long and demanding hours of development and research. Their belief in our capabilities sustained us throughout this journey.
+
+We also acknowledge the open-source communities behind .NET 8, ASP.NET Core, React.js, FastAPI, and the Google Gemini AI API, whose tools and libraries made this project technically feasible.
+
+Finally, we dedicate this work to every elderly individual who deserves dignity, professional care, and compassionate monitoring in their golden years. It is our hope that the SmartElderlyCare system will, in some measure, contribute to improving the quality of eldercare in our society.
+
+Team Members:
+Anton Farid Maurice, Haidy Medhat Azer, Maryam Elghazaly Abdelkader,
+Mahmoud Mohammed Mahmoud Elbarbary, Abdallah Essam Mohammed, Abdelrhman Reda Sayed""", size=11)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ABSTRACT
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Abstract", 1)
+
+    add_paragraph(doc, """SmartElderlyCare (commercially branded as SilverNest) is a comprehensive, multi-tier elder care management platform developed as a graduation project for the Faculty of Computers and Information, Information Systems Department. The system addresses critical challenges in managing elderly residents at care facilities by integrating modern software engineering technologies into a unified, intelligent solution.
+
+The system is built using a clean three-tier microservices architecture comprising: (1) a .NET 8 / ASP.NET Core Web API backend implementing Clean Architecture (Domain, Application, Infrastructure, and API layers) with Entity Framework Core and SQL Server; (2) a Python FastAPI AI microservice incorporating a trained Random Forest machine learning model for health risk prediction, a meal recommendation engine, and a fall detection prototype; and (3) a React.js 19 single-page application frontend integrated with the Google Gemini AI API for intelligent, natural-language daily report generation.
+
+The platform serves four distinct user roles: System Administrators, Team Leaders, Care Employees, and Family Members. Key functional modules include: automated JWT-based authentication with role-based access control (RBAC), real-time SignalR-based push notifications, daily health metric reporting with AI-generated summaries, predictive health risk analytics with clinical rule-based overrides, AI-powered personalised dietary recommendations, family visit scheduling and management, employee work schedule management, attendance tracking with clock-in/clock-out, approval workflows, comprehensive audit logging, and a full administrative dashboard with system-wide statistics.
+
+The AI microservice was trained on a custom elderly health dataset of over 500 records spanning vital signs, medication adherence, mobility, sleep patterns, and dietary intake. The trained Random Forest classifier achieves high accuracy in predicting high-risk health events, supplemented by a hybrid clinical rule engine that enforces hard clinical thresholds for patient safety.
+
+The project demonstrates the successful application of full-stack software engineering principles, machine learning, natural language processing, real-time communication, and human-computer interaction design to a meaningful real-world healthcare problem.
+
+Keywords: Elder Care Management, ASP.NET Core, React.js, Python FastAPI, Machine Learning, Random Forest, Health Risk Prediction, Gemini AI, SignalR, Clean Architecture, JWT Authentication, RBAC, Information Systems.""", size=11)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TABLE OF CONTENTS (Manual)
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Table of Contents", 1)
+
+    toc_items = [
+        ("Acknowledgements", "ii"),
+        ("Abstract", "iii"),
+        ("Table of Contents", "iv"),
+        ("List of Figures", "vi"),
+        ("List of Tables", "vii"),
+        ("Chapter 1: Introduction", "1"),
+        ("    1.1  Overview", "1"),
+        ("    1.2  Objectives", "2"),
+        ("    1.3  Purpose", "2"),
+        ("    1.4  Scope", "3"),
+        ("    1.5  General Constraints", "3"),
+        ("Chapter 2: Project Planning and Analysis", "5"),
+        ("    2.1  Project Planning", "5"),
+        ("        2.1.1  Feasibility Study", "5"),
+        ("        2.1.2  Estimated Cost Analysis", "7"),
+        ("        2.1.3  Gantt Chart", "8"),
+        ("    2.2  Analysis and Limitations of Existing Systems", "9"),
+        ("    2.3  Need for the New System", "10"),
+        ("    2.4  Analysis of the New System", "11"),
+        ("        2.4.1  User Requirements", "11"),
+        ("        2.4.2  System Requirements", "12"),
+        ("        2.4.3  Domain Requirements", "13"),
+        ("        2.4.4  Functional Requirements", "14"),
+        ("        2.4.5  Non-Functional Requirements", "16"),
+        ("    2.5  Advantages of the New System", "17"),
+        ("    2.6  Risk and Risk Management", "18"),
+        ("Chapter 3: Software Design", "20"),
+        ("    3.1  Database Design (ERD)", "20"),
+        ("    3.2  Use Case Diagram", "24"),
+        ("    3.3  Class Diagram", "27"),
+        ("    3.4  Sequence Diagrams", "29"),
+        ("    3.5  Activity Diagrams", "35"),
+        ("    3.6  System Architecture Diagram", "40"),
+        ("Chapter 4: Implementation", "43"),
+        ("    4.1  Software Architecture", "43"),
+        ("    4.2  Workflow / Pseudocode / Flowcharts", "47"),
+        ("    4.3  Module Implementation", "49"),
+        ("    4.4  API Documentation", "58"),
+        ("Chapter 5: Testing", "67"),
+        ("    5.1  Unit Testing", "67"),
+        ("    5.2  Integration Testing", "70"),
+        ("    5.3  System Testing", "72"),
+        ("    5.4  Performance Testing", "74"),
+        ("    5.5  Security Testing", "75"),
+        ("    5.6  User Acceptance Testing", "76"),
+        ("    5.7  Testing Summary Tables", "77"),
+        ("Chapter 6: Results and Discussion", "79"),
+        ("    6.1  Results", "79"),
+        ("    6.2  Discussion", "81"),
+        ("Chapter 7: Conclusion", "84"),
+        ("Chapter 8: Future Work", "86"),
+        ("Bibliography", "89"),
+        ("Appendix A: Database Schema", "91"),
+        ("Appendix B: API Documentation", "93"),
+        ("Appendix C: Source Code Samples", "96"),
+        ("Appendix D: User Manual", "99"),
+        ("Appendix E: Installation Guide", "102"),
+        ("Appendix F: Test Cases", "105"),
+    ]
+
+    table = doc.add_table(rows=len(toc_items), cols=2)
+    table.style = 'Table Grid'
+    for ri, (item, page) in enumerate(toc_items):
+        row = table.rows[ri].cells
+        row[0].text = item
+        row[0].paragraphs[0].runs[0].font.size = Pt(10)
+        row[1].text = page
+        row[1].paragraphs[0].runs[0].font.size = Pt(10)
+        row[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # LIST OF FIGURES
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "List of Figures", 1)
+    figures = [
+        ("Figure 1.1", "SmartElderlyCare High-Level System Overview", "4"),
+        ("Figure 2.1", "Gantt Chart – Project Development Timeline", "8"),
+        ("Figure 3.1", "Entity Relationship Diagram (ERD) – Full Database Schema", "20"),
+        ("Figure 3.2", "Use Case Diagram – System Actors and Use Cases", "24"),
+        ("Figure 3.3", "Class Diagram – Domain Model", "27"),
+        ("Figure 3.4", "Sequence Diagram – User Authentication Flow", "29"),
+        ("Figure 3.5", "Sequence Diagram – Employee Daily Report Submission", "30"),
+        ("Figure 3.6", "Sequence Diagram – Team Leader Report Approval", "31"),
+        ("Figure 3.7", "Sequence Diagram – AI Health Risk Prediction", "32"),
+        ("Figure 3.8", "Sequence Diagram – Family Visit Scheduling", "33"),
+        ("Figure 3.9", "Sequence Diagram – Real-Time Notification Delivery", "34"),
+        ("Figure 3.10", "Activity Diagram – User Registration and Login", "35"),
+        ("Figure 3.11", "Activity Diagram – Daily Report Submission and Approval Workflow", "36"),
+        ("Figure 3.12", "Activity Diagram – Emergency Health Alert Workflow", "37"),
+        ("Figure 3.13", "Activity Diagram – Family Visit Scheduling Workflow", "38"),
+        ("Figure 3.14", "Activity Diagram – Employee Attendance Workflow", "39"),
+        ("Figure 3.15", "System Architecture Diagram – Three-Tier Microservices", "40"),
+        ("Figure 4.1", "Clean Architecture Layer Diagram", "43"),
+        ("Figure 4.2", "JWT Authentication Flowchart", "47"),
+        ("Figure 4.3", "AI Health Risk Prediction Flowchart", "48"),
+        ("Figure 4.4", "Employee Dashboard Screenshot", "49"),
+        ("Figure 4.5", "Team Leader Dashboard Screenshot", "52"),
+        ("Figure 4.6", "Admin Dashboard Screenshot", "54"),
+        ("Figure 4.7", "Family Member Portal Screenshot", "56"),
+    ]
+    add_styled_table(doc, ["Figure No.", "Caption", "Page"], figures)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # LIST OF TABLES
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "List of Tables", 1)
+    tables_list = [
+        ("Table 2.1", "Feasibility Study Summary", "6"),
+        ("Table 2.2", "Estimated Project Cost Breakdown", "7"),
+        ("Table 2.3", "Comparison of Existing Systems", "9"),
+        ("Table 2.4", "Functional Requirements", "14"),
+        ("Table 2.5", "Non-Functional Requirements", "16"),
+        ("Table 2.6", "Risk Register and Mitigation Plan", "18"),
+        ("Table 3.1", "Database Entities and Descriptions", "21"),
+        ("Table 3.2", "Entity Relationships Summary", "23"),
+        ("Table 3.3", "User Types and Roles", "25"),
+        ("Table 4.1", "Technology Stack", "44"),
+        ("Table 4.2", "Authentication API Endpoints", "58"),
+        ("Table 4.3", "Admin API Endpoints", "59"),
+        ("Table 4.4", "Team Leader API Endpoints", "61"),
+        ("Table 4.5", "Employee API Endpoints", "62"),
+        ("Table 4.6", "Family Member API Endpoints", "64"),
+        ("Table 4.7", "AI Microservice Endpoints", "65"),
+        ("Table 5.1", "Unit Test Cases – Authentication", "67"),
+        ("Table 5.2", "Unit Test Cases – Report Management", "68"),
+        ("Table 5.3", "Unit Test Cases – Health Prediction", "69"),
+        ("Table 5.4", "Integration Test Results", "71"),
+        ("Table 5.5", "System Test Results", "73"),
+        ("Table 5.6", "Performance Benchmarks", "74"),
+        ("Table 5.7", "Security Test Results", "75"),
+        ("Table 5.8", "UAT Results Summary", "76"),
+        ("Table 5.9", "Overall Testing Summary", "77"),
+        ("Table 6.1", "Expected vs Actual Results Comparison", "80"),
+        ("Table A.1", "Database Table Definitions", "91"),
+        ("Table F.1", "Complete Test Case Catalogue", "105"),
+    ]
+    add_styled_table(doc, ["Table No.", "Caption", "Page"], tables_list)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 1: INTRODUCTION
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 1: Introduction", 1)
+    add_heading(doc, "1.1  Overview", 2)
+    add_paragraph(doc, """The global elderly population is growing at an unprecedented rate. According to the World Health Organization (WHO), the number of people aged 60 years or older is projected to reach 2.1 billion by 2050 — more than double the figure recorded in 2020. This demographic shift places enormous pressure on care facilities, healthcare providers, families, and information systems that must support the physical, medical, and emotional needs of elderly residents.
+
+In Egypt and the broader Middle Eastern region, the challenge is further compounded by a growing gap between rising demand for professional eldercare services and the capacity of care facilities to deliver consistent, high-quality, and documented care. Existing systems — where they exist at all — are often paper-based, fragmented, poorly integrated, and lack any intelligent decision-support capabilities.
+
+SmartElderlyCare, commercially branded as SilverNest, is a full-stack, AI-enhanced elder care management system developed as the graduation project of six students from the Department of Information Systems, Faculty of Computers and Information. The system is designed to address the pressing operational needs of elderly care facilities through a modern, web-based, role-aware platform that integrates data management, workflow automation, real-time communication, and artificial intelligence.
+
+The system provides an integrated digital platform where care facility administrators, team leaders, caregiving employees, and family members all have their own tailored dashboards and functionality — enabling seamless coordination, transparent monitoring, and data-driven decision-making in eldercare.""", size=11)
+
+    add_heading(doc, "1.2  Objectives", 2)
+    objectives = [
+        "To develop a fully functional, multi-role web-based management system for elderly care facilities.",
+        "To implement an AI-powered health risk prediction engine capable of identifying high-risk residents based on vital signs, medication adherence, mobility, sleep, and mood.",
+        "To integrate Google Gemini AI for intelligent, natural-language daily health report generation.",
+        "To implement a machine learning-based personalised dietary recommendation engine tailored to each resident's medical history, allergies, and dietary restrictions.",
+        "To deliver a real-time push notification system using ASP.NET Core SignalR for instantaneous health alerts and workflow events.",
+        "To implement a complete digital workflow for report submission, review, and approval.",
+        "To provide family members with transparent, controlled access to approved health reports and visit scheduling capabilities.",
+        "To apply Clean Architecture, SOLID principles, and industry-grade security practices in system design.",
+        "To demonstrate the successful integration of .NET 8, React.js 19, Python FastAPI, and multiple AI APIs in a cohesive full-stack project.",
+    ]
+    for obj in objectives:
+        add_bullet(doc, obj)
+
+    add_heading(doc, "1.3  Purpose", 2)
+    add_paragraph(doc, """The primary purpose of this project is threefold:
+
+First, to demonstrate academic mastery of the full software development lifecycle — from requirements analysis through architectural design, implementation, testing, and documentation — as part of the graduation requirements of the Department of Information Systems.
+
+Second, to contribute a technically advanced, practically applicable software solution to the domain of eldercare management. The system is designed to be deployable in real care facilities, with production-grade features including JWT-based authentication, role-based access control (RBAC), soft-delete data management, global exception handling middleware, audit logging, and database migrations.
+
+Third, to explore and apply modern AI and machine learning technologies within a healthcare context, demonstrating how trained classification models, large language models (Google Gemini), and intelligent rule engines can augment human caregiving with data-driven insights, while maintaining patient safety through clinical override protocols.""", size=11)
+
+    add_heading(doc, "1.4  Scope", 2)
+    add_paragraph(doc, "The SmartElderlyCare system encompasses the following functional scope:", size=11)
+    
+    scope_items = [
+        ("User Management", "Full CRUD, role-based access (Admin, TeamLeader, Employee, FamilyMember), soft-delete, activation/deactivation, audit trails."),
+        ("Elderly Resident Management", "Complete resident profiles including medical history, allergies, dietary restrictions, room assignment, emergency contacts, and unique connection codes for family self-registration."),
+        ("Daily Health Reporting", "Structured health metric logging (vitals, medications, meals, activities, mood, symptoms) with Google Gemini AI-generated narrative reports."),
+        ("AI Health Risk Prediction", "Custom-trained Random Forest classifier for high-risk prediction with hybrid clinical rule-based overrides for patient safety."),
+        ("AI Dietary Recommendations", "ML-based personalised meal recommendations accounting for BMI, medical conditions, blood sugar trends, blood pressure trends, allergies, and dietary restrictions."),
+        ("Report Approval Workflow", "Team leader review, approval, or rejection workflow with reason logging and notification triggers."),
+        ("Visit Scheduling", "Family members can request, update, and cancel visits; team leaders approve or reject with reasons."),
+        ("Work Schedule Management", "Team leaders create, update, and delete employee work schedules; employees view their own schedules."),
+        ("Attendance Tracking", "Employee clock-in/clock-out with daily attendance logs and summary analytics."),
+        ("Real-Time Notifications", "SignalR-based push notifications for health alerts, report approvals/rejections, visit decisions, and schedule changes."),
+        ("Email Notifications", "SMTP email service for password reset functionality."),
+        ("System Statistics and Dashboard", "Aggregated KPIs including total residents, active employees, pending reports, and attendance summaries."),
+        ("Audit Logging", "Complete system-wide audit trail of all create, update, and delete actions with timestamps, user IDs, entity types, and change diffs."),
+    ]
+
+    scope_table_data = [(k, v) for k, v in scope_items]
+    add_styled_table(doc, ["Module", "Scope Description"], scope_table_data)
+
+    add_heading(doc, "1.5  General Constraints", 2)
+    constraints = [
+        ("Time Constraint", "The project was developed within a single academic semester (approximately 16 weeks), requiring careful scope management and prioritisation."),
+        ("Academic Context", "The system is a prototype-grade project. While designed with production-quality architecture, it has not undergone production hardening (e.g., distributed caching, CDN, container orchestration)."),
+        ("Hardware Resources", "The system was developed and tested on standard developer workstations without cloud infrastructure. Performance benchmarks reflect local deployment conditions."),
+        ("Database", "The system uses Microsoft SQL Server as the relational database. Cloud database deployment (e.g., Azure SQL) is planned for future work."),
+        ("AI Model Training Data", "The health risk prediction model was trained on a synthetic elderly health dataset (elderly_health_dataset.xlsx) of approximately 500 records. Real-world performance may require retraining on larger clinical datasets."),
+        ("CORS Policy", "The current development configuration allows all origins (CORS: AllowAll). Production deployment requires a restricted CORS policy aligned to the hosting domain."),
+        ("Fall Detection", "The current fall detection module uses a bounding-box aspect-ratio heuristic as a simulation prototype. Integration with a real computer vision model (e.g., YOLOv8-pose, MediaPipe) is planned for future work."),
+        ("Authentication", "The system implements stateless JWT authentication with a 60-minute access token. Refresh token rotation is planned for a future version."),
+    ]
+    add_styled_table(doc, ["Constraint", "Description"], constraints)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 2: PROJECT PLANNING AND ANALYSIS
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 2: Project Planning and Analysis", 1)
+    add_heading(doc, "2.1  Project Planning", 2)
+    add_heading(doc, "2.1.1  Feasibility Study", 3)
+
+    add_paragraph(doc, "A comprehensive feasibility study was conducted across four dimensions:", size=11)
+
+    feasibility_data = [
+        ("Technical Feasibility",
+         "HIGH",
+         "All required technologies (.NET 8, React.js 19, Python FastAPI, SQL Server, SignalR, Gemini API) are mature, well-documented, and free to use in academic contexts. The development team acquired expertise in all stack components through coursework and independent study."),
+        ("Economic Feasibility",
+         "HIGH",
+         "The project is entirely open-source and free of licensing costs. Cloud hosting (optional) carries minimal charges for academic-scale deployments. SQL Server Express (free) and SQLite (alternative) are viable database options."),
+        ("Operational Feasibility",
+         "HIGH",
+         "Care facility staff are already accustomed to digital tools. The system provides clear role-specific dashboards that reduce learning curves. Administrator onboarding, employee training, and family self-registration workflows are all built into the system."),
+        ("Legal / Ethical Feasibility",
+         "MEDIUM",
+         "Health data is sensitive and subject to data protection regulations. The system implements soft-delete (never permanently erases records), role-based data access (family members only see approved reports), and full audit logging. Compliance with GDPR principles is architecturally supported."),
+        ("Schedule Feasibility",
+         "HIGH",
+         "The project scope was carefully defined and prioritised using an Agile-inspired iterative approach. Core modules (Auth, Reports, Elderly Management, Notifications) were developed first, followed by AI integration and advanced analytics."),
+    ]
+
+    add_styled_table(doc, ["Dimension", "Rating", "Assessment"], feasibility_data)
+
+    add_paragraph(doc, "Based on this study, the SmartElderlyCare project was determined to be fully feasible for development within the academic semester.", size=11, bold=False)
+
+    add_heading(doc, "2.1.2  Estimated Cost Analysis", 3)
+    add_paragraph(doc, "The following table presents an estimated cost analysis based on hypothetical commercial development rates:", size=11)
+
+    cost_data = [
+        ("Backend API Development (.NET 8, ASP.NET Core, EF Core)", "320 hours", "USD 30/hr", "USD 9,600"),
+        ("Frontend Development (React.js, HeroUI, Recharts)", "280 hours", "USD 28/hr", "USD 7,840"),
+        ("AI Microservice Development (FastAPI, Scikit-learn, ML Training)", "120 hours", "USD 35/hr", "USD 4,200"),
+        ("Database Design and Administration (SQL Server, EF Migrations)", "60 hours", "USD 30/hr", "USD 1,800"),
+        ("Testing and Quality Assurance", "80 hours", "USD 25/hr", "USD 2,000"),
+        ("Documentation", "40 hours", "USD 20/hr", "USD 800"),
+        ("Project Management", "60 hours", "USD 25/hr", "USD 1,500"),
+        ("Software Licenses (All Open Source)", "—", "—", "USD 0"),
+        ("Cloud Hosting (Development Phase)", "—", "—", "USD 0"),
+        ("", "TOTAL", "", "USD 27,740"),
+    ]
+    add_styled_table(doc, ["Work Item", "Estimated Hours", "Rate", "Cost"], cost_data)
+    
+    add_paragraph(doc, "Note: Actual academic project cost is USD 0, as all tools are open-source and development is performed by student team members as part of their graduation requirements.", size=10, italic=True)
+
+    add_heading(doc, "2.1.3  Gantt Chart", 3)
+    add_paragraph(doc, "The following table describes the project timeline, presented as a textual Gantt chart spanning 16 weeks:", size=11)
+
+    gantt_data = [
+        ("Week 1-2", "Requirements Gathering and Analysis", "All Members", "COMPLETED"),
+        ("Week 2-3", "System Architecture Design and ERD", "Anton, Mahmoud", "COMPLETED"),
+        ("Week 3-4", "Database Schema and EF Core Models", "Anton, Abdelrhman", "COMPLETED"),
+        ("Week 4-6", "Backend: Auth, User Management, Admin APIs", "Anton, Abdallah", "COMPLETED"),
+        ("Week 5-7", "Backend: Employee, TeamLeader, Family APIs", "Anton, Abdelrhman, Abdallah", "COMPLETED"),
+        ("Week 6-8", "AI Microservice: Dataset Preparation and ML Training", "Mahmoud, Haidy", "COMPLETED"),
+        ("Week 7-9", "AI Microservice: FastAPI Endpoints (Health Risk, Diet, Fall)", "Mahmoud, Haidy", "COMPLETED"),
+        ("Week 8-10", "Frontend: Auth Pages, Role-based Routing", "Maryam, Haidy", "COMPLETED"),
+        ("Week 9-11", "Frontend: Employee and Admin Dashboards", "Maryam, Anton", "COMPLETED"),
+        ("Week 10-12", "Frontend: Team Leader and Family Portals", "Maryam, Haidy", "COMPLETED"),
+        ("Week 11-13", "SignalR Notification Hub and Real-time Features", "Anton, Abdallah", "COMPLETED"),
+        ("Week 12-14", "Gemini AI Integration and Report Generation", "Anton, Mahmoud", "COMPLETED"),
+        ("Week 13-15", "Integration Testing and Bug Fixes", "All Members", "COMPLETED"),
+        ("Week 15-16", "Documentation, Final Testing, UAT", "All Members", "COMPLETED"),
+        ("Week 16", "Final Report Preparation and Submission", "All Members", "COMPLETED"),
+    ]
+    add_styled_table(doc, ["Timeline", "Task", "Responsible", "Status"], gantt_data)
+
+    add_heading(doc, "2.2  Analysis and Limitations of Existing Systems", 2)
+    add_paragraph(doc, "A review of existing eldercare management systems was conducted to identify gaps that SmartElderlyCare addresses:", size=11)
+
+    comparison_data = [
+        ("EHR Systems (e.g., Epic, Cerner)", "Comprehensive clinical records", "Extremely expensive, complex implementation, not designed for small-to-medium care homes; no AI advisory features; no family portal"),
+        ("MatrixCare", "Nursing facility management", "Enterprise pricing, complex training requirements, limited AI integration, no direct family communication portal"),
+        ("Netsmart myUnity", "Elder care workflow management", "US-centric compliance (HIPAA), cloud-only, expensive subscription, limited customisation for regional use cases"),
+        ("Paper-Based Systems (Local)", "Zero cost", "No digital records, no analytics, high error rate, no family communication, no AI support, no reporting workflow"),
+        ("Generic ERP/HR Systems", "General-purpose management", "Not healthcare-specific, no health monitoring, no medication tracking, no family access, no AI health predictions"),
+        ("SmartElderlyCare (This Project)", "Purpose-built for eldercare with AI", "Open-source stack, zero licensing cost, full Arabic/regional use-case support, built-in AI, real-time alerts, family portal, Gemini AI reports, multilingual-ready"),
+    ]
+    add_styled_table(doc, ["System", "Strengths", "Limitations / Gaps"], comparison_data)
+
+    add_heading(doc, "2.3  Need for the New System", 2)
+    need_points = [
+        "The absence of an affordable, Arabic-context-appropriate digital eldercare management system for small-to-medium care facilities in Egypt and the region.",
+        "The lack of AI-powered health risk prediction in available systems, which would allow proactive rather than reactive care.",
+        "The absence of seamless family communication and transparency — a critical concern in Middle Eastern family-centred cultures.",
+        "The need for intelligent, AI-generated clinical reports to reduce documentation burden on care staff.",
+        "The requirement for real-time health alerts that notify relevant staff immediately when a resident's vitals or behaviour signals risk.",
+        "The absence of integrated dietary recommendation systems personalised to each resident's medical profile.",
+        "The need for a complete digital audit trail for all care actions, essential for facility compliance and quality assurance.",
+        "The lack of structured report approval workflows to ensure quality control between caregivers and supervisors.",
+    ]
+    for pt in need_points:
+        add_bullet(doc, pt)
+
+    add_heading(doc, "2.4  Analysis of the New System", 2)
+    add_heading(doc, "2.4.1  User Requirements", 3)
+    add_paragraph(doc, "The following user requirements were gathered through iterative analysis:", size=11)
+
+    user_reqs = [
+        ("UR-001", "Admin", "Create, update, deactivate, and permanently soft-delete user accounts across all roles."),
+        ("UR-002", "Admin", "Manage elderly resident profiles including medical history, allergies, and dietary restrictions."),
+        ("UR-003", "Admin", "Assign and reassign employees to elderly residents, marking primary caregivers."),
+        ("UR-004", "Admin", "View system-wide statistics, audit logs, and activity summaries."),
+        ("UR-005", "Admin", "Manage all visit requests and family-elderly linkages."),
+        ("UR-006", "Team Leader", "Review, approve, or reject employee-submitted daily health reports."),
+        ("UR-007", "Team Leader", "Monitor employee attendance, performance metrics, and report submission history."),
+        ("UR-008", "Team Leader", "Create, update, and delete employee work schedules."),
+        ("UR-009", "Team Leader", "Approve or reject family visit requests with documented reasons."),
+        ("UR-010", "Team Leader", "Access AI-generated dietary recommendations for any resident."),
+        ("UR-011", "Employee", "Submit structured daily health reports for assigned elderly residents."),
+        ("UR-012", "Employee", "Record health metrics including vitals, medications, meals, activities, mood, and symptoms."),
+        ("UR-013", "Employee", "Clock in and out to record attendance."),
+        ("UR-014", "Employee", "View personal work schedule and assigned residents."),
+        ("UR-015", "Employee", "Receive real-time notifications for report decisions and schedule updates."),
+        ("UR-016", "Family Member", "Self-register using a unique resident connection code."),
+        ("UR-017", "Family Member", "View approved health reports for linked elderly residents."),
+        ("UR-018", "Family Member", "Track health trends and metric history for linked residents."),
+        ("UR-019", "Family Member", "Schedule, update, and cancel visit requests."),
+        ("UR-020", "Family Member", "Receive notifications for visit approvals/rejections and health alerts."),
+        ("UR-021", "All Users", "Authenticate securely using email and password with JWT."),
+        ("UR-022", "All Users", "Reset forgotten password via email link."),
+        ("UR-023", "All Users", "View and update personal profile information."),
+    ]
+    add_styled_table(doc, ["Req. ID", "Actor", "Requirement"], user_reqs)
+
+    add_heading(doc, "2.4.2  System Requirements", 3)
+    add_paragraph(doc, "Hardware Requirements for Deployment:", size=11, bold=True)
+    hw_reqs = [
+        ("Server (Backend + Database)", "Minimum: 4-core CPU, 8 GB RAM, 100 GB SSD. Recommended: 8-core CPU, 16 GB RAM, 256 GB NVMe SSD."),
+        ("AI Microservice Server", "Minimum: 4-core CPU, 8 GB RAM (for ML model inference). GPU recommended for training but not required at runtime."),
+        ("Client Workstations", "Any modern device with a web browser (Chrome 90+, Firefox 88+, Edge 91+, Safari 14+). Minimum 1280x720 display resolution."),
+        ("Network", "Stable internet connection for AI API calls (Gemini AI). LAN connectivity sufficient for internal operations."),
+    ]
+    add_styled_table(doc, ["Component", "Specification"], hw_reqs)
+
+    add_paragraph(doc, "Software Requirements:", size=11, bold=True)
+    sw_reqs = [
+        (".NET 8 Runtime", "Required for the ASP.NET Core Web API backend."),
+        ("SQL Server 2019+", "Primary relational database. Express edition supported."),
+        ("Python 3.10+", "Required for the FastAPI AI microservice."),
+        ("Node.js 18+", "Required for building the React.js frontend."),
+        ("Modern Web Browser", "For end-users accessing the system."),
+        ("SMTP Server Access", "For password reset email functionality (Gmail SMTP configured)."),
+        ("Google Gemini API Key", "For AI-generated report functionality."),
+    ]
+    add_styled_table(doc, ["Software", "Purpose"], sw_reqs)
+
+    add_heading(doc, "2.4.3  Domain Requirements", 3)
+    add_paragraph(doc, "The following domain-specific requirements apply to the eldercare context:", size=11)
+    domain_reqs = [
+        "Health data must be stored with full audit trails and must never be permanently deleted (soft-delete required).",
+        "Family members must only be able to access information related to their specific linked elderly resident(s).",
+        "Employees may only access the profiles and reports of elderly residents assigned to them.",
+        "AI health predictions must be supplemented by hard clinical rule overrides to ensure patient safety (e.g., if systolic BP ≥ 160 mmHg, always flag as high risk regardless of model output).",
+        "Dietary recommendations must respect all documented allergies and dietary restrictions as hard constraints.",
+        "Visit scheduling must adhere to facility policies (visit duration limits, advance notice requirements).",
+        "All report submissions must pass through a team leader approval workflow before becoming visible to family members.",
+        "Notifications must be delivered in real-time to minimise response latency for health alerts.",
+    ]
+    for dr in domain_reqs:
+        add_bullet(doc, dr)
+
+    add_heading(doc, "2.4.4  Functional Requirements", 3)
+
+    functional_reqs = [
+        ("FR-001", "Authentication", "The system shall authenticate users via email and password and issue JWT access tokens valid for 60 minutes."),
+        ("FR-002", "Authentication", "The system shall support password reset via time-limited email tokens."),
+        ("FR-003", "Authentication", "The system shall implement account lockout after 5 failed login attempts."),
+        ("FR-004", "User Management", "The system shall support creation, retrieval, update, and soft-deletion of user accounts."),
+        ("FR-005", "User Management", "The system shall enforce unique email addresses across all user accounts."),
+        ("FR-006", "User Management", "The system shall support role assignment (Admin, TeamLeader, Employee, FamilyMember)."),
+        ("FR-007", "Elderly Management", "The system shall support full CRUD operations on elderly resident profiles."),
+        ("FR-008", "Elderly Management", "Each elderly resident shall have a unique 6-character connection code for family self-registration."),
+        ("FR-009", "Report Management", "The system shall allow employees to create and submit daily health reports with structured health metrics."),
+        ("FR-010", "Report Management", "The system shall trigger Gemini AI report generation automatically upon report submission."),
+        ("FR-011", "Report Management", "The system shall allow team leaders to approve or reject reports with rejection reasons."),
+        ("FR-012", "Report Management", "Approved reports shall be visible to linked family members."),
+        ("FR-013", "Health Prediction", "The system shall call the AI microservice to assess health risk for each submitted report."),
+        ("FR-014", "Health Prediction", "The AI service shall return a risk level (High/Low), confidence score, and clinical recommendation."),
+        ("FR-015", "Dietary Recommendation", "The system shall generate AI-powered personalised dietary recommendations for residents."),
+        ("FR-016", "Visit Management", "Family members shall be able to schedule visit requests with date, time, and duration."),
+        ("FR-017", "Visit Management", "Team leaders shall approve or reject visit requests with documented reasons."),
+        ("FR-018", "Schedule Management", "Team leaders shall create and manage employee work schedules (Morning/Afternoon/Night/Off shifts)."),
+        ("FR-019", "Attendance", "Employees shall be able to clock in and clock out to record daily attendance."),
+        ("FR-020", "Notifications", "The system shall deliver real-time push notifications via SignalR for all significant workflow events."),
+        ("FR-021", "Audit Logging", "The system shall log all create, update, and delete actions with user ID, timestamp, and data changes."),
+        ("FR-022", "Dashboard", "Admin, Team Leader, and Employee dashboards shall display role-appropriate KPI summaries."),
+    ]
+    add_styled_table(doc, ["Req. ID", "Module", "Requirement"], functional_reqs)
+
+    add_heading(doc, "2.4.5  Non-Functional Requirements", 3)
+    nfr_data = [
+        ("NFR-001", "Performance", "API response time shall be under 500ms for standard CRUD operations under normal load."),
+        ("NFR-002", "Performance", "The system shall support at least 100 concurrent users without degradation."),
+        ("NFR-003", "Security", "All API endpoints shall be protected by JWT bearer token authentication."),
+        ("NFR-004", "Security", "The AI microservice shall be protected by API key authentication (X-API-Key header)."),
+        ("NFR-005", "Security", "Passwords shall be hashed using ASP.NET Core Identity (PBKDF2 with HMACSHA256)."),
+        ("NFR-006", "Security", "All sensitive configuration (API keys, connection strings) shall be stored in appsettings.json or environment variables."),
+        ("NFR-007", "Availability", "The system shall target 99% uptime in production deployment."),
+        ("NFR-008", "Scalability", "The Clean Architecture design shall allow individual services to scale independently."),
+        ("NFR-009", "Maintainability", "Code shall follow SOLID principles, Clean Architecture, and shall include XML documentation comments on all public APIs."),
+        ("NFR-010", "Usability", "The UI shall be responsive and accessible on screen resolutions from 1280x720 upward."),
+        ("NFR-011", "Data Integrity", "All database operations shall use transactions where applicable; cascading deletes are restricted to preserve referential integrity."),
+        ("NFR-012", "Auditability", "No record shall ever be permanently deleted; the system uses soft-delete with IsDeleted and DeletedAt fields."),
+    ]
+    add_styled_table(doc, ["Req. ID", "Category", "Requirement"], nfr_data)
+
+    add_heading(doc, "2.5  Advantages of the New System", 2)
+    advantages = [
+        ("AI-Powered Health Intelligence", "The system combines a trained Random Forest model with a hybrid clinical rule engine to detect high-risk health conditions proactively, reducing the risk of undetected deterioration."),
+        ("Intelligent Report Generation", "Integration with Google Gemini AI transforms raw health metrics into professional, narrative-style clinical reports, saving caregivers significant documentation time."),
+        ("Personalised Nutrition Planning", "AI-driven dietary recommendations account for each resident's unique medical history, allergies, BMI, blood sugar trends, and blood pressure, enabling truly personalised care."),
+        ("Real-Time Communication", "SignalR-powered push notifications ensure that critical health alerts and workflow decisions reach the right person within seconds."),
+        ("Family Transparency", "The family portal provides relatives with secure, filtered access to approved health reports and the ability to schedule and track visits, greatly improving family peace of mind."),
+        ("Complete Audit Trail", "Every action in the system is logged with user identity, timestamp, and data change details, supporting accountability and compliance."),
+        ("Zero Licensing Cost", "The entire technology stack is open-source and free, making the system highly accessible for care facilities with limited IT budgets."),
+        ("Clean Architecture", "The Domain-Application-Infrastructure-API layered architecture ensures the system is maintainable, testable, and easily extensible."),
+        ("Role-Aware Access Control", "RBAC ensures each user type sees only the data and functions relevant to their role, preventing data leakage and reducing cognitive overload."),
+    ]
+    add_styled_table(doc, ["Advantage", "Explanation"], advantages)
+
+    add_heading(doc, "2.6  Risk and Risk Management", 2)
+    risks = [
+        ("R-001", "Scope Creep", "HIGH", "HIGH", "Adopted iterative development with weekly scope reviews; deferred non-essential features to Future Work."),
+        ("R-002", "AI Model Accuracy", "MEDIUM", "HIGH", "Supplemented ML model with hard clinical rule overrides; logged all predictions for review."),
+        ("R-003", "Gemini API Downtime", "LOW", "HIGH", "Implemented a template-based fallback report generator that activates when the AI API is unavailable."),
+        ("R-004", "Security Vulnerabilities", "MEDIUM", "HIGH", "Implemented JWT auth, RBAC, HTTPS, password hashing, account lockout, and input validation."),
+        ("R-005", "Data Loss", "LOW", "HIGH", "Implemented soft-delete throughout; all records are retained with IsDeleted flags."),
+        ("R-006", "Team Member Unavailability", "MEDIUM", "MEDIUM", "Distributed responsibilities across all team members; used Git version control for collaborative development."),
+        ("R-007", "Performance Degradation", "LOW", "MEDIUM", "Implemented pagination, query filtering, indexes on frequently queried columns, and async operations throughout."),
+        ("R-008", "Cross-Origin Issues (CORS)", "MEDIUM", "LOW", "Configured CORS middleware; production will restrict allowed origins."),
+    ]
+    add_styled_table(doc, ["Risk ID", "Description", "Likelihood", "Impact", "Mitigation Strategy"], risks)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 3: SOFTWARE DESIGN
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 3: Software Design", 1)
+    add_heading(doc, "3.1  Database Design", 2)
+    add_heading(doc, "3.1.1  Entity-Relationship Diagram (ERD)", 3)
+
+    add_paragraph(doc, "The SmartElderlyCare database is implemented using Microsoft SQL Server with Entity Framework Core Code-First migrations. The schema comprises 12 primary tables derived from the domain entity models, plus ASP.NET Core Identity tables for authentication and authorisation.", size=11)
+
+    add_paragraph(doc, """
+═══════════════════════════════════════════════════════════════════════
+                    ENTITY-RELATIONSHIP DIAGRAM (ERD)
+                      SmartElderlyCare Database Schema
+═══════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│          USERS              │◄────────────────────────────────────────┐
+│─────────────────────────────│                                         │
+│ Id (PK, INT, Identity)      │                                         │
+│ FirstName (NVARCHAR 100)    │                                         │
+│ LastName  (NVARCHAR 100)    │     ┌──────────────────────────────┐   │
+│ Email (NVARCHAR, UNIQUE)    │     │     DAILY_REPORTS            │   │
+│ PasswordHash (NVARCHAR)     │◄────│──────────────────────────────│   │
+│ PhoneNumber (NVARCHAR)      │  1:N│ Id (PK, INT, Identity)       │   │
+│ UserType (INT)              │     │ EmployeeId (FK→Users)        │   │
+│ IsActive (BIT)              │     │ ElderlyId  (FK→Elderlies)    │   │
+│ IsDeleted (BIT)             │     │ ReportDate (DATETIME)        │   │
+│ CreatedAt (DATETIME)        │     │ SubmissionDate (DATETIME)    │   │
+│ UpdatedAt (DATETIME?)       │     │ ApprovalStatus (INT)         │   │
+│ LastLoginAt (DATETIME?)     │     │ ApprovedById (FK→Users, NULL)│   │
+└─────────────────────────────┘     │ AiGeneratedReport (NTEXT)    │   │
+         │                          │ StructuredData (NTEXT JSON)  │   │
+         │1                         │ RejectionReason (NVARCHAR?)  │   │
+         │                          └──────────────────────────────┘   │
+         │N                                    │1                       │
+         │                                     │N                       │
+  ┌──────▼──────────────────────┐    ┌─────────▼─────────────────────┐ │
+  │    WORK_SCHEDULES           │    │      HEALTH_METRICS            │ │
+  │─────────────────────────────│    │────────────────────────────────│ │
+  │ Id (PK)                     │    │ Id (PK)                       │ │
+  │ EmployeeId (FK→Users)       │    │ DailyReportId (FK→DailyRpts)  │ │
+  │ ShiftDate (DATE)            │    │ MetricType (INT: Enum)        │ │
+  │ StartTime (TIME)            │    │ MetricName (NVARCHAR)         │ │
+  │ EndTime (TIME)              │    │ MetricValue (NVARCHAR)        │ │
+  │ ShiftType (INT: Enum)       │    │ Unit (NVARCHAR?)              │ │
+  │ CreatedById (FK→Users)      │    │ Notes (NVARCHAR?)             │ │
+  │ Notes (NVARCHAR?)           │    │ RecordedTime (TIME)           │ │
+  └─────────────────────────────┘    └────────────────────────────────┘
+  
+  ┌──────────────────────────────┐
+  │         ELDERLIES            │◄──────────────────────────────────────┐
+  │──────────────────────────────│                                       │
+  │ Id (PK, INT, Identity)       │   ┌────────────────────────────────┐  │
+  │ FirstName (NVARCHAR 100)     │   │  EMPLOYEE_ELDERLY_ASSIGNMENTS  │  │
+  │ LastName  (NVARCHAR 100)     │◄──│────────────────────────────────│  │
+  │ DateOfBirth (DATETIME)       │N:M│ EmployeeId (PK, FK→Users)      │  │
+  │ RoomNumber (NVARCHAR?)       │   │ ElderlyId  (PK, FK→Elderlies)  │  │
+  │ EmergencyContact (NVARCHAR?) │   │ AssignedDate (DATETIME)        │──┘
+  │ MedicalConditions (NTEXT?)   │   │ EndDate (DATETIME?)            │
+  │ Allergies (NTEXT?)           │   │ IsPrimary (BIT)                │
+  │ DietaryRestrictions (NTEXT?) │   └────────────────────────────────┘
+  │ ProfileImageUrl (NVARCHAR?)  │
+  │ ConnectionCode (CHAR 6)      │   ┌────────────────────────────────┐
+  │ IsActive (BIT)               │   │   ELDERLY_FAMILY_MEMBERS       │
+  │ IsDeleted (BIT)              │◄──│────────────────────────────────│
+  └──────────────────────────────┘N:M│ ElderlyId (PK, FK→Elderlies)  │
+                                     │ FamilyMemberId (PK, FK→Users)  │
+  ┌───────────────────────────────┐   │ Relationship (NVARCHAR)        │
+  │       VISIT_REQUESTS          │   │ IsPrimaryContact (BIT)         │
+  │───────────────────────────────│   │ CanScheduleVisits (BIT)        │
+  │ Id (PK)                       │   └────────────────────────────────┘
+  │ FamilyMemberId (FK→Users)     │
+  │ ElderlyId (FK→Elderlies)      │   ┌────────────────────────────────┐
+  │ RequestedDate (DATE)          │   │       NOTIFICATIONS            │
+  │ RequestedTime (TIME)          │   │────────────────────────────────│
+  │ DurationMinutes (INT)         │   │ Id (PK)                       │
+  │ Status (INT: Enum)            │   │ UserId (FK→Users, CASCADE)    │
+  │ ApprovedById (FK→Users, NULL) │   │ Title (NVARCHAR)              │
+  │ ApprovedDate (DATETIME?)      │   │ Message (NTEXT)               │
+  │ Notes (NVARCHAR?)             │   │ NotificationType (INT: Enum)  │
+  │ RejectionReason (NVARCHAR?)   │   │ IsRead (BIT)                  │
+  └───────────────────────────────┘   │ RelatedEntityId (INT?)        │
+                                      │ RelatedEntityType (NVARCHAR?) │
+  ┌───────────────────────────────┐   └────────────────────────────────┘
+  │       ATTENDANCE_LOGS         │
+  │───────────────────────────────│   ┌────────────────────────────────┐
+  │ Id (PK)                       │   │         AUDIT_LOGS             │
+  │ EmployeeId (FK→Users)         │   │────────────────────────────────│
+  │ LoginTime (DATETIME)          │   │ Id (PK)                       │
+  │ LogoutTime (DATETIME?)        │   │ UserId (FK→Users, SET NULL)   │
+  └───────────────────────────────┘   │ Action (NVARCHAR 100)         │
+                                      │ EntityName (NVARCHAR 100)     │
+                                      │ EntityId (INT?)               │
+                                      │ OldValues (NTEXT?)            │
+                                      │ NewValues (NTEXT?)            │
+                                      │ IpAddress (NVARCHAR?)         │
+                                      │ Timestamp (DATETIME)          │
+                                      └────────────────────────────────┘
+                                      
+     ┌─── ASP.NET Core Identity Tables ───────────────────────────────┐
+     │  ROLES | USER_ROLES | USER_CLAIMS | USER_LOGINS               │
+     │  USER_TOKENS | ROLE_CLAIMS                                     │
+     └────────────────────────────────────────────────────────────────┘
+     
+Figure 3.1: Entity-Relationship Diagram (ERD) – SmartElderlyCare Database
+""", size=8)
+
+    add_paragraph(doc, "Caption: Figure 3.1 – Entity-Relationship Diagram showing all 12 domain entities, their attributes, and relationships in the SmartElderlyCare database.", size=10, italic=True)
+
+    add_heading(doc, "3.1.2  Entity Descriptions", 3)
+    entities_desc = [
+        ("Users", "Extends ASP.NET Core IdentityUser<int>. Stores all system user accounts including Admins, Team Leaders, Employees, and Family Members. Includes FirstName, LastName, UserType (enum), IsActive, soft-delete fields, and LastLoginAt."),
+        ("Roles", "Extends ASP.NET Core IdentityRole<int>. Stores system roles: Admin, TeamLeader, Employee, FamilyMember."),
+        ("Elderlies", "Stores elderly resident profiles including personal information, medical conditions, allergies, dietary restrictions, room assignment, emergency contact, profile image URL, and a unique 6-character ConnectionCode used for family self-registration."),
+        ("DailyReports", "Stores daily health care reports submitted by employees for assigned elderly residents. Includes report date, submission date, approval status, AI-generated narrative report, structured JSON data, and approval/rejection workflow fields."),
+        ("HealthMetrics", "Stores individual health observations within a daily report. Each metric has a type (Meal, Medication, Activity, Symptom, Vital, Mood), name, value, unit, notes, and recorded time."),
+        ("EmployeeElderlyAssignments", "Many-to-many join table linking employees to elderly residents. Supports composite PK (EmployeeId, ElderlyId), assignment date, end date, and primary caregiver flag."),
+        ("ElderlyFamilyMembers", "Many-to-many join table linking family member users to elderly residents. Records the relationship type (Son, Daughter, Spouse, etc.), primary contact flag, and visit permission flag."),
+        ("WorkSchedules", "Stores employee shift schedules created by team leaders. Includes shift date, start/end times, shift type (Morning, Afternoon, Night, Overnight, OffDay), and creator/updater references."),
+        ("AttendanceLogs", "Records employee clock-in and clock-out timestamps. LogDate is a computed column derived from LoginTime."),
+        ("VisitRequests", "Stores family visit requests submitted by family members. Includes requested date/time, duration, status (Pending/Approved/Rejected/Cancelled/Completed), and approval/rejection tracking."),
+        ("Notifications", "Stores in-app notifications for all users. Each notification has a type (HealthAlert, ReportApproved, ReportRejected, VisitRequest, ScheduleChange, General), read status, and optional related entity reference."),
+        ("AuditLogs", "Permanent (not soft-deleted) system audit records. Logs every significant action with user ID, action type, entity name, entity ID, old values JSON, new values JSON, IP address, and timestamp."),
+    ]
+    add_styled_table(doc, ["Entity", "Description"], entities_desc)
+
+    add_heading(doc, "3.1.3  Database Relationships", 3)
+    relationships = [
+        ("Users → DailyReports (as Employee)", "One-to-Many", "RESTRICT", "An employee can submit many daily reports; deletion of user is restricted if reports exist."),
+        ("Users → DailyReports (as Approver)", "One-to-Many", "RESTRICT", "A team leader can approve many reports."),
+        ("Elderlies → DailyReports", "One-to-Many", "RESTRICT", "An elderly resident can have many daily reports."),
+        ("DailyReports → HealthMetrics", "One-to-Many", "CASCADE", "A report contains many health metrics; deleting a report cascades to its metrics."),
+        ("Users ↔ Elderlies (via EmployeeElderlyAssignments)", "Many-to-Many", "RESTRICT", "Composite PK (EmployeeId, ElderlyId); employees can be assigned to multiple residents and vice versa."),
+        ("Elderlies ↔ Users (via ElderlyFamilyMembers)", "Many-to-Many", "RESTRICT", "Composite PK (ElderlyId, FamilyMemberId); family members can be linked to multiple residents."),
+        ("Users → WorkSchedules", "One-to-Many", "RESTRICT", "An employee can have many scheduled shifts."),
+        ("Users → AttendanceLogs", "One-to-Many", "RESTRICT", "An employee has many attendance log entries."),
+        ("Users → Notifications", "One-to-Many", "CASCADE", "A user has many notifications; deleting a user cascades to their notifications."),
+        ("Users → AuditLogs", "One-to-Many", "SET NULL", "Audit logs reference the acting user; if user is deleted, UserId is set to null (records preserved)."),
+        ("Elderlies → VisitRequests", "One-to-Many", "RESTRICT", "An elderly resident can have many visit requests."),
+    ]
+    add_styled_table(doc, ["Relationship", "Cardinality", "Delete Behavior", "Notes"], relationships)
+
+    add_heading(doc, "3.2  Use Case Diagram", 2)
+    add_paragraph(doc, """The following textual Use Case Diagram maps all system actors to their respective use cases in SmartElderlyCare. Each actor interacts with the system through a defined set of use cases protected by role-based access control.""", size=11)
+
+    add_paragraph(doc, """
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    USE CASE DIAGRAM – SmartElderlyCare                  ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  ACTORS: [Admin] [TeamLeader] [Employee] [FamilyMember] [AI Service]    ║
+║                                                                          ║
+║  ┌─────────────────────────────────────────────────────────────────┐    ║
+║  │                    SmartElderlyCare System                      │    ║
+║  │                                                                 │    ║
+║  │  ┌──────────────────────── AUTH ─────────────────────────┐     │    ║
+║  │  │  «UC» Login                         [ALL ACTORS]       │     │    ║
+║  │  │  «UC» Logout                        [ALL ACTORS]       │     │    ║
+║  │  │  «UC» Forgot Password               [ALL ACTORS]       │     │    ║
+║  │  │  «UC» Reset Password                [ALL ACTORS]       │     │    ║
+║  │  │  «UC» Change Password               [ALL ACTORS]       │     │    ║
+║  │  │  «UC» Get Current User Info         [ALL ACTORS]       │     │    ║
+║  │  └──────────────────────────────────────────────────────-─┘     │    ║
+║  │                                                                 │    ║
+║  │  ┌───────────────────── ADMIN MODULE ────────────────────┐     │    ║
+║  │  │  «UC» Manage Users (CRUD, Activate/Deactivate)        │     │    ║
+║  │  │  «UC» Manage Elderly Residents (CRUD)                 │     │    ║
+║  │  │  «UC» Assign/Remove Employees to Elderly              │     │    ║
+║  │  │  «UC» Assign/Remove Family to Elderly                 │     │    ║
+║  │  │  «UC» View System Statistics                          │     │    ║
+║  │  │  «UC» View Audit Logs                                 │     │    ║
+║  │  │  «UC» Manage All Visit Requests                       │     │    ║
+║  │  │  «UC» Register Employee (via Auth)                    │     │    ║
+║  │  │  «UC» View Admin Dashboard                            │     │    ║
+║  │  └──────────────────────────────────────────────────────-┘     │    ║
+║  │                     ▲ Admin                                     │    ║
+║  │                                                                 │    ║
+║  │  ┌──────────────── TEAM LEADER MODULE ──────────────────┐      │    ║
+║  │  │  «UC» View/Approve/Reject Daily Reports               │      │    ║
+║  │  │  «UC» View All Elderly Residents                      │      │    ║
+║  │  │  «UC» Monitor Employee Performance                    │      │    ║
+║  │  │  «UC» View Attendance Logs and Summaries              │      │    ║
+║  │  │  «UC» Create/Update/Delete Work Schedules             │      │    ║
+║  │  │  «UC» Approve/Reject Visit Requests                   │      │    ║
+║  │  │  «UC» Get AI Dietary Recommendations                  │──────┼───► [AI Service]
+║  │  │  «UC» View Team Leader Dashboard                      │      │    ║
+║  │  └──────────────────────────────────────────────────────-┘      │    ║
+║  │                     ▲ TeamLeader                                │    ║
+║  │                                                                 │    ║
+║  │  ┌──────────────── EMPLOYEE MODULE ─────────────────────┐      │    ║
+║  │  │  «UC» Submit Daily Health Reports                     │      │    ║
+║  │  │  «UC» Update Pending Reports                          │      │    ║
+║  │  │  «UC» View Assigned Elderly Residents                 │      │    ║
+║  │  │  «UC» Clock In / Clock Out                            │      │    ║
+║  │  │  «UC» View Work Schedule                              │      │    ║
+║  │  │  «UC» View Pending Tasks                              │      │    ║
+║  │  │  «UC» View Employee Dashboard                         │      │    ║
+║  │  └──────────────────────────────────────────────────────-┘      │    ║
+║  │                     ▲ Employee                                  │    ║
+║  │                                                                 │    ║
+║  │  ┌──────────────── FAMILY MEMBER MODULE ────────────────┐      │    ║
+║  │  │  «UC» Self-Register (with Connection Code)            │      │    ║
+║  │  │  «UC» View Linked Elderly Residents                   │      │    ║
+║  │  │  «UC» View Approved Health Reports                    │      │    ║
+║  │  │  «UC» Track Health Trends and Metrics                 │      │    ║
+║  │  │  «UC» Schedule / Update / Cancel Visit Requests       │      │    ║
+║  │  │  «UC» View Notifications                              │      │    ║
+║  │  │  «UC» View Family Dashboard                           │      │    ║
+║  │  └──────────────────────────────────────────────────────-┘      │    ║
+║  │                     ▲ FamilyMember                              │    ║
+║  │                                                                 │    ║
+║  │  ┌──────────────── AI INTEGRATIONS ─────────────────────┐      │    ║
+║  │  │  «UC» Predict Health Risk       [AI Microservice]     │      │    ║
+║  │  │  «UC» Generate Diet Plan        [AI Microservice]     │      │    ║
+║  │  │  «UC» Detect Fall (Prototype)   [AI Microservice]     │      │    ║
+║  │  │  «UC» Generate AI Report        [Google Gemini API]   │      │    ║
+║  │  │  «UC» Detect Health Patterns    [Google Gemini API]   │      │    ║
+║  │  └──────────────────────────────────────────────────────-┘      │    ║
+║  └─────────────────────────────────────────────────────────────────┘    ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Figure 3.2: Use Case Diagram – All System Actors and Use Cases
+""", size=8)
+
+    add_paragraph(doc, "Caption: Figure 3.2 – Use Case Diagram showing all four human actors (Admin, TeamLeader, Employee, FamilyMember) and AI service interactions.", size=10, italic=True)
+
+    add_heading(doc, "3.3  Class Diagram", 2)
+    add_paragraph(doc, "The following class diagram represents the core domain model of SmartElderlyCare, derived directly from the entity classes and their relationships as implemented in the Domain project:", size=11)
+
+    add_paragraph(doc, """
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    CLASS DIAGRAM – Domain Model                            ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║ ┌──────────────────────────────────┐                                        ║
+║ │           <<abstract>>            │                                        ║
+║ │           BaseEntity              │                                        ║
+║ │──────────────────────────────────│                                        ║
+║ │ + Id: int                         │                                        ║
+║ │ + CreatedAt: DateTime             │                                        ║
+║ │ + UpdatedAt: DateTime?            │                                        ║
+║ │ + IsDeleted: bool                 │                                        ║
+║ │ + DeletedAt: DateTime?            │                                        ║
+║ └──────────────┬───────────────────┘                                        ║
+║               ◄│ (inherits)                                                 ║
+║    ┌───────────┼───────────────────────────────────────┐                   ║
+║    │           │                                        │                   ║
+║ ┌──▼───────────────────────┐    ┌────────────────────────────────┐         ║
+║ │        User              │    │           Elderly               │         ║
+║ │ extends IdentityUser<int>│    │────────────────────────────────│         ║
+║ │──────────────────────────│    │ + FirstName: string             │         ║
+║ │+ FirstName: string       │    │ + LastName: string              │         ║
+║ │+ LastName: string        │    │ + DateOfBirth: DateTime         │         ║
+║ │+ PhoneNumber: string?    │    │ + RoomNumber: string?           │         ║
+║ │+ UserType: UserType      │    │ + EmergencyContact: string?     │         ║
+║ │+ IsActive: bool          │    │ + MedicalConditions: string?    │         ║
+║ │+ LastLoginAt: DateTime?  │    │ + Allergies: string?            │         ║
+║ │──────────────────────────│    │ + DietaryRestrictions: string?  │         ║
+║ │+ DailyReports: List<>    │    │ + ConnectionCode: string        │         ║
+║ │+ AttendanceLogs: List<>  │    │ + IsActive: bool                │         ║
+║ │+ WorkSchedules: List<>   │    │──────────────────────────────── │         ║
+║ │+ Notifications: List<>   │    │ + DailyReports: List<>          │         ║
+║ │+ EmployeeAssignments:List│    │ + EmployeeAssignments: List<>   │         ║
+║ │+ FamilyLinks: List<>     │    │ + FamilyMembers: List<>         │         ║
+║ │+ ApprovedReports: List<> │    │ + VisitRequests: List<>         │         ║
+║ └──────────────────────────┘    └─────────────────────────────────┘        ║
+║          │ 1                              │ 1                               ║
+║          │ N                              │ N                               ║
+║ ┌────────▼──────────────────┐   ┌────────▼─────────────────────────┐      ║
+║ │       DailyReport         │   │     EmployeeElderlyAssignment    │      ║
+║ │───────────────────────────│   │──────────────────────────────────│      ║
+║ │+ EmployeeId: int          │   │+ EmployeeId: int (PK)            │      ║
+║ │+ ElderlyId: int           │   │+ ElderlyId: int  (PK)            │      ║
+║ │+ ReportDate: DateTime     │   │+ AssignedDate: DateTime          │      ║
+║ │+ ApprovalStatus: enum     │   │+ EndDate: DateTime?              │      ║
+║ │+ ApprovedById: int?       │   │+ IsPrimary: bool                 │      ║
+║ │+ AiGeneratedReport: string│   └──────────────────────────────────┘      ║
+║ │+ StructuredData: string   │                                              ║
+║ │──────────────────────────-│   ┌──────────────────────────────────┐      ║
+║ │+ HealthMetrics: List<>    │   │      ElderlyFamilyMember         │      ║
+║ └────────┬──────────────────┘   │──────────────────────────────────│      ║
+║          │ 1                    │+ ElderlyId: int (PK)             │      ║
+║          │ N                    │+ FamilyMemberId: int (PK)        │      ║
+║ ┌────────▼──────────────────┐   │+ Relationship: string            │      ║
+║ │      HealthMetric         │   │+ IsPrimaryContact: bool          │      ║
+║ │───────────────────────────│   │+ CanScheduleVisits: bool         │      ║
+║ │+ DailyReportId: int       │   └──────────────────────────────────┘      ║
+║ │+ MetricType: MetricType   │                                              ║
+║ │+ MetricName: string       │   ┌──────────────────────────────────┐      ║
+║ │+ MetricValue: string      │   │        VisitRequest              │      ║
+║ │+ Unit: string?            │   │──────────────────────────────────│      ║
+║ │+ Notes: string?           │   │+ FamilyMemberId: int             │      ║
+║ │+ RecordedTime: TimeSpan   │   │+ ElderlyId: int                  │      ║
+║ └───────────────────────────┘   │+ RequestedDate: DateTime         │      ║
+║                                 │+ RequestedTime: TimeSpan         │      ║
+║ ┌───────────────────────────┐   │+ DurationMinutes: int            │      ║
+║ │      WorkSchedule         │   │+ Status: VisitStatus             │      ║
+║ │───────────────────────────│   │+ ApprovedById: int?              │      ║
+║ │+ EmployeeId: int          │   └──────────────────────────────────┘      ║
+║ │+ ShiftDate: DateTime      │                                              ║
+║ │+ StartTime: TimeSpan      │   ┌──────────────────────────────────┐      ║
+║ │+ EndTime: TimeSpan        │   │        Notification              │      ║
+║ │+ ShiftType: ShiftType     │   │──────────────────────────────────│      ║
+║ └───────────────────────────┘   │+ UserId: int                     │      ║
+║                                 │+ Title: string                   │      ║
+║ ┌───────────────────────────┐   │+ Message: string                 │      ║
+║ │      AttendanceLog        │   │+ NotificationType: enum          │      ║
+║ │───────────────────────────│   │+ IsRead: bool                    │      ║
+║ │+ EmployeeId: int          │   │+ RelatedEntityId: int?           │      ║
+║ │+ LoginTime: DateTime      │   └──────────────────────────────────┘      ║
+║ │+ LogoutTime: DateTime?    │                                              ║
+║ └───────────────────────────┘   ┌──────────────────────────────────┐      ║
+║                                 │          AuditLog                │      ║
+║ ╔═══════════════════════════╗   │──────────────────────────────────│      ║
+║ ║  <<enumeration>>          ║   │+ UserId: int?                    │      ║
+║ ║  UserType                 ║   │+ Action: string                  │      ║
+║ ║  Admin=1 | TeamLeader=2   ║   │+ EntityName: string              │      ║
+║ ║  Employee=3 | Family=4    ║   │+ OldValues: string?              │      ║
+║ ╚═══════════════════════════╝   │+ Timestamp: DateTime             │      ║
+║                                 └──────────────────────────────────┘      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+Figure 3.3: Class Diagram – Domain Model showing all entities and key relationships
+""", size=8)
+
+    add_paragraph(doc, "Caption: Figure 3.3 – Class Diagram showing the SmartElderlyCare domain model with all entities, properties, and relationships.", size=10, italic=True)
+
+    add_heading(doc, "3.4  Sequence Diagrams", 2)
+    add_heading(doc, "3.4.1  Authentication Sequence Diagram", 3)
+    add_paragraph(doc, """
+┌──────┐   ┌──────────┐   ┌─────────────────────┐   ┌────────────┐   ┌──────────┐
+│Client│   │AuthCtrlr │   │AuthenticationService │   │UserManager │   │ JWT Util │
+└──┬───┘   └────┬─────┘   └──────────┬──────────┘   └─────┬──────┘   └────┬─────┘
+   │            │                    │                     │                │
+   │ POST /login│                    │                     │                │
+   │──────────►│                    │                     │                │
+   │            │ LoginAsync(request)│                     │                │
+   │            │──────────────────►│                     │                │
+   │            │                   │FindByEmailAsync()    │                │
+   │            │                   │────────────────────►│                │
+   │            │                   │◄────────────────────│ return user    │
+   │            │                   │ Check IsActive/Deleted                │
+   │            │                   │CheckPasswordSignIn() │                │
+   │            │                   │────────────────────►│                │
+   │            │                   │◄──────────────────── result.Succeeded│
+   │            │                   │ GenerateJwtToken()  │                │
+   │            │                   │──────────────────────────────────────►
+   │            │                   │◄────────────────────────────────── JWT token
+   │            │                   │ UpdateLastLoginAt() │                │
+   │            │                   │────────────────────►│                │
+   │ 200 OK + JWT + UserInfo        │                     │                │
+   │◄──────────│                    │                     │                │
+
+Figure 3.4: Sequence Diagram – JWT Authentication Flow
+""", size=8)
+
+    add_heading(doc, "3.4.2  Daily Report Submission Sequence", 3)
+    add_paragraph(doc, """
+┌──────────┐  ┌──────────────┐  ┌────────────────┐  ┌────────────┐  ┌────────────┐  ┌───────────┐
+│ Employee │  │EmployeeCtrlr │  │EmployeeService │  │GeminiService│  │AIPrediction│  │NotifService│
+└────┬─────┘  └──────┬───────┘  └───────┬────────┘  └─────┬──────┘  └─────┬──────┘  └─────┬─────┘
+     │                │                 │                  │               │               │
+     │ POST /reports  │                 │                  │               │               │
+     │───────────────►│                 │                  │               │               │
+     │                │CreateDailyReport│                  │               │               │
+     │                │────────────────►│                  │               │               │
+     │                │                 │ Validate Employee│               │               │
+     │                │                 │ Validate Elderly │               │               │
+     │                │                 │ Save Report+Metrics              │               │
+     │                │                 │ GenerateDailyReport              │               │
+     │                │                 │────────────────►│                │               │
+     │                │                 │◄─ AI Report Text │               │               │
+     │                │                 │ PredictHealthRisk│               │               │
+     │                │                 │──────────────────────────────────►              │
+     │                │                 │◄────────────────── RiskLevel, Confidence        │
+     │                │                 │ If High Risk: SendNotification                  │
+     │                │                 │──────────────────────────────────────────────► │
+     │                │                 │ Update AiGeneratedReport                        │
+     │ 201 Created + Report DTO         │                  │               │               │
+     │◄───────────────│                 │                  │               │               │
+
+Figure 3.5: Sequence Diagram – Employee Daily Report Submission with AI Integration
+""", size=8)
+
+    add_heading(doc, "3.4.3  Report Approval Sequence", 3)
+    add_paragraph(doc, """
+┌────────────┐  ┌───────────────┐  ┌─────────────────┐  ┌──────────────┐  ┌─────────────┐
+│ TeamLeader │  │ TLController  │  │TeamLeaderService │  │    DB/EF     │  │NotifService │
+└─────┬──────┘  └───────┬───────┘  └────────┬─────────┘  └──────┬───────┘  └──────┬──────┘
+      │                 │                   │                    │                 │
+      │ GET /reports/pending                │                    │                 │
+      │────────────────►│                   │                    │                 │
+      │◄─ 200 PaginatedList<DailyReportDto>  │                    │                 │
+      │                 │                   │                    │                 │
+      │ POST /approve   │                   │                    │                 │
+      │ {reportId, notes│                   │                    │                 │
+      │────────────────►│                   │                    │                 │
+      │                 │ ApproveReport()   │                    │                 │
+      │                 │──────────────────►│                    │                 │
+      │                 │                   │ Update Status=Approved              │
+      │                 │                   │ Set ApprovedById, ApprovedDate       │
+      │                 │                   │────────────────────►                │
+      │                 │                   │ SendNotification to Employee        │
+      │                 │                   │──────────────────────────────────── ►│
+      │                 │                   │ SendNotification to FamilyMembers   │
+      │                 │                   │──────────────────────────────────── ►│
+      │ 200 OK + Updated Report             │                    │                 │
+      │◄───────────────│                    │                    │                 │
+
+Figure 3.6: Sequence Diagram – Team Leader Report Approval Workflow
+""", size=8)
+
+    add_heading(doc, "3.4.4  AI Health Risk Prediction Sequence", 3)
+    add_paragraph(doc, """
+┌────────────────┐  ┌────────────────┐  ┌──────────────┐  ┌──────────────────────────┐
+│EmployeeService │  │AiPredictionSvc │  │ FastAPI/AI   │  │ RandomForest + RuleEngine│
+└──────┬─────────┘  └───────┬────────┘  └──────┬───────┘  └──────────┬───────────────┘
+       │                    │                  │                      │
+       │ PredictHealthRisk()│                  │                      │
+       │───────────────────►│                  │                      │
+       │                    │ POST /api/ml/predict-health-risk        │
+       │                    │ {age, heart_rate, systolic_bp,          │
+       │                    │  diastolic_bp, blood_sugar, temp,       │
+       │                    │  mobility, sleep, medications, meals}   │
+       │                    │─────────────────►│                      │
+       │                    │                  │ Preprocess(temp C→F)│
+       │                    │                  │─────────────────────►
+       │                    │                  │ ML Predict()         │
+       │                    │                  │ Clinical Rule Check()│
+       │                    │                  │ Generate Markdown Report
+       │                    │                  │ Log to CSV           │
+       │                    │◄── PredictionOutput {risk, conf, rpt} ──│
+       │◄── {risk_level, confidence_score, recommendation}           │
+
+Figure 3.7: Sequence Diagram – AI Health Risk Prediction Pipeline
+""", size=8)
+
+    add_heading(doc, "3.4.5  Family Visit Scheduling Sequence", 3)
+    add_paragraph(doc, """
+┌────────────┐  ┌──────────────┐  ┌─────────────────┐  ┌────────────┐  ┌─────────────┐
+│FamilyMember│  │FamilyCtrlr   │  │FamilyMemberSvc  │  │ DB / EF    │  │NotifService │
+└─────┬──────┘  └──────┬───────┘  └────────┬─────────┘  └─────┬──────┘  └──────┬──────┘
+      │                │                   │                   │                │
+      │ POST /visits   │                   │                   │                │
+      │────────────────►                   │                   │                │
+      │                │ ScheduleVisit()   │                   │                │
+      │                │──────────────────►│                   │                │
+      │                │                   │ Verify FM-linked to Elderly        │
+      │                │                   │ Check CanScheduleVisits == true    │
+      │                │                   │ Create VisitRequest(Pending)       │
+      │                │                   │──────────────────►│                │
+      │                │                   │ Notify TeamLeaders│                │
+      │                │                   │────────────────────────────────────►
+      │ 201 Created    │                   │                   │                │
+      │◄───────────────│                   │                   │                │
+      │                │  [Later: TeamLeader approves/rejects]  │                │
+      │                │                   │ Notify FamilyMember of decision   │
+      │                │                   │────────────────────────────────────►
+Figure 3.8: Sequence Diagram – Family Visit Scheduling Workflow
+""", size=8)
+
+    add_heading(doc, "3.4.6  Real-Time Notification Sequence (SignalR)", 3)
+    add_paragraph(doc, """
+┌────────┐  ┌─────────────────┐  ┌─────────────────────┐  ┌────────────────┐
+│ Client │  │ NotificationHub  │  │ NotificationService  │  │ SignalR Groups │
+└───┬────┘  └────────┬─────────┘  └──────────┬──────────┘  └───────┬────────┘
+    │                │                       │                      │
+    │ WS Connect + JWT Token                 │                      │
+    │──────────────►│                        │                      │
+    │               │ OnConnectedAsync()     │                      │
+    │               │ Add to user-{id} group │                      │
+    │               │ Add to role group      │                      │
+    │               │───────────────────────────────────────────────►
+    │ Connection Confirmed                   │                      │
+    │◄──────────────│                        │                      │
+    │               │                       │                      │
+    │ [Server-side event: Report Approved]   │                      │
+    │               │ CreateNotification()  │                      │
+    │               │◄───────────────────── │                      │
+    │               │ SaveToDB + SendRealTime│                      │
+    │               │ SendToUser(userId)     │                      │
+    │               │───────────────────────────────────────────────►
+    │               │               Clients.Group("user-{id}").SendAsync("ReceiveNotification")
+    │ ReceiveNotification event      │                      │────────►
+    │◄──────────────│                │                      │
+    │ Show toast/badge in UI         │                      │
+
+Figure 3.9: Sequence Diagram – Real-Time SignalR Notification Delivery
+""", size=8)
+
+    add_heading(doc, "3.5  Activity Diagrams", 2)
+    add_heading(doc, "3.5.1  User Registration and Login Activity", 3)
+    add_paragraph(doc, """
+       [START]
+          │
+          ▼
+    [User Opens App]
+          │
+          ├── Family Member ──► [Self-Register with Connection Code]
+          │                              │
+          │                     [Validate Code → Find Elderly]
+          │                              │
+          │                     [Create User + Link to Elderly]
+          │                              │
+          ├────────────────────────────◄─┘
+          │
+          ▼
+    [User Enters Email + Password]
+          │
+          ▼
+    [POST /api/auth/login]
+          │
+     ┌────┴────┐
+     │         │
+    [Valid]   [Invalid] ──► [Increment Failed Attempts]
+     │                               │
+     │                    [Lockout if >= 5]
+     │                               │
+     │                    [Return 401 Error]
+     ▼
+    [JWT Token Generated + Returned]
+          │
+          ▼
+    [Frontend Stores Token (localStorage)]
+          │
+          ▼
+    [Decode Token → Extract Role]
+          │
+     ┌────┴──────────────────────────────┐
+     │                                   │
+   [Admin]  [TeamLeader]  [Employee]  [FamilyMember]
+     │           │             │           │
+     ▼           ▼             ▼           ▼
+ /admin      /teamleader  /employee   /family
+ /dashboard  /dashboard   /dashboard  /home
+          │
+         [END]
+
+Figure 3.10: Activity Diagram – User Registration and Login Workflow
+""", size=8)
+
+    add_heading(doc, "3.5.2  Daily Report Submission and Approval Workflow", 3)
+    add_paragraph(doc, """
+[Employee Starts Shift]
+         │
+         ▼
+[Clock In → POST /employee/attendance/clock-in]
+         │
+         ▼
+[View Assigned Elderly → GET /employee/assigned-elderly]
+         │
+         ▼
+[Select Resident → Create Daily Report]
+         │
+         ▼
+[Add Health Metrics (Vitals, Meals, Medications, Mood, Activities)]
+         │
+         ▼
+[POST /employee/reports → Submit Report]
+         │
+         ▼
+[System: Gemini AI Generates Narrative Report]
+         │
+         ▼
+[System: AI Microservice Predicts Health Risk]
+         │
+    ┌────┴────┐
+    │         │
+[High Risk] [Low Risk]
+    │         │
+    ▼         │
+[Alert Notification → Team Leaders notified]
+    │         │
+    └────┬────┘
+         │
+         ▼
+[Report Status = Pending]
+         │
+         ▼
+[Team Leader Reviews Report]
+         │
+    ┌────┴────────┐
+    │             │
+ [Approve]    [Reject with Reason]
+    │             │
+    ▼             ▼
+[Status=Approved] [Status=Rejected]
+    │             │
+    ▼             │
+[Notify Employee (Approved)] ◄──────────────
+[Notify Family Members (Report Available)]
+    │
+    ▼
+[Family Member Views Report]
+    │
+    ▼
+[Employee Clocks Out → POST /attendance/clock-out]
+    │
+   [END]
+
+Figure 3.11: Activity Diagram – Daily Report Submission and Approval Workflow
+""", size=8)
+
+    add_heading(doc, "3.5.3  Emergency Health Alert Workflow", 3)
+    add_paragraph(doc, """
+[AI Microservice Receives Vital Signs Data]
+         │
+         ▼
+[Apply Clinical Rule Engine]
+         │
+    ┌────┴────────────────────────┐
+    │  BP ≥ 160 OR HR ≥ 115 OR   │
+    │  Temp ≥ 101.5°F OR         │
+    │  Blood Sugar ≥ 200 mg/dL   │
+    │  OR Missed Meds ≥ 2        │
+    └───────────────┬────────────┘
+         │ ANY TRUE │
+         ▼
+[Force Risk = HIGH | Confidence = 0.99]
+         │
+         ▼
+[Generate Urgent Clinical Alert Report (Markdown)]
+         │
+         ▼
+[Return {risk: "High", recommendation: URGENT_REPORT}]
+         │
+         ▼
+[Backend: Check Risk Level]
+         │
+[if High → NotificationService.CreateNotification()]
+         │
+         ▼
+[Persist Notification to DB]
+         │
+         ▼
+[SignalR: Push real-time alert to Team Leaders]
+         │
+         ▼
+[Team Leader receives HealthAlert notification]
+         │
+         ▼
+[Team Leader opens report → Reads clinical recommendations]
+         │
+         ▼
+[Initiates appropriate intervention]
+         │
+        [END]
+
+Figure 3.12: Activity Diagram – Emergency Health Alert Detection and Escalation
+""", size=8)
+
+    add_heading(doc, "3.6  System Architecture Diagram", 2)
+    add_paragraph(doc, "SmartElderlyCare follows a three-tier microservices architecture consisting of a React.js SPA frontend, an ASP.NET Core Web API backend, and a Python FastAPI AI microservice, all backed by Microsoft SQL Server.", size=11)
+
+    add_paragraph(doc, """
+╔═══════════════════════════════════════════════════════════════════════════════════════╗
+║              SMARTELDERLYCARE – SYSTEM ARCHITECTURE DIAGRAM                         ║
+╠═══════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                      ║
+║  ┌──────────────────────────────── PRESENTATION TIER ─────────────────────────────┐ ║
+║  │                                                                                 │ ║
+║  │   ┌────────────────────────────────────────────────────────────────────────┐   │ ║
+║  │   │              REACT.JS 19 SINGLE PAGE APPLICATION (Vite)                │   │ ║
+║  │   │    Frontend App Name: "silvernest"                                     │   │ ║
+║  │   │                                                                        │   │ ║
+║  │   │  ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │   │ ║
+║  │   │  │  Admin   │  │ Team Leader  │  │   Employee   │  │   Family     │  │   │ ║
+║  │   │  │ Dashboard│  │  Dashboard   │  │  Dashboard   │  │   Portal     │  │   │ ║
+║  │   │  └──────────┘  └──────────────┘  └──────────────┘  └──────────────┘  │   │ ║
+║  │   │                                                                        │   │ ║
+║  │   │  Libraries: HeroUI · TailwindCSS · Recharts · React-Router-DOM v7     │   │ ║
+║  │   │            Framer-Motion · Axios · TanStack Query · React Hook Form   │   │ ║
+║  │   │            JWT-Decode · Lucide-React · React-Markdown · XLSX          │   │ ║
+║  │   └────────────────────────────────────────────────────────────────────────┘   │ ║
+║  └──────────────────────────┬──────────────────────────┬───────────────────────────┘ ║
+║                             │ HTTPS/REST API            │ WebSocket (SignalR)         ║
+║  ┌──────────────────────────▼──────────────────────────▼───────────────────────────┐ ║
+║  │                     APPLICATION TIER (BACKEND)                                  │ ║
+║  │                                                                                  │ ║
+║  │   ┌──────────────────────────────────────────────────────────────────────────┐  │ ║
+║  │   │          ASP.NET CORE 8 WEB API  (Clean Architecture)                   │  │ ║
+║  │   │                                                                          │  │ ║
+║  │   │  ┌─────────────┐  ┌─────────────────────────────────────────────────┐  │  │ ║
+║  │   │  │  API Layer  │  │              Application Layer                   │  │  │ ║
+║  │   │  │─────────────│  │─────────────────────────────────────────────────│  │  │ ║
+║  │   │  │AuthController│ │ DTOs · Interfaces · Mapping (AutoMapper)        │  │  │ ║
+║  │   │  │AdminController│ │ Application Wrappers (Response<T>)             │  │  │ ║
+║  │   │  │EmployeeCntrl│  │ Common Settings (JWT, Email, Gemini)            │  │  │ ║
+║  │   │  │TeamLeaderCtrl│  └─────────────────────────────────────────────────┘  │  │ ║
+║  │   │  │FamilyCtrlr  │                                                        │  │ ║
+║  │   │  │NotifCtrlr   │  ┌─────────────────────────────────────────────────┐  │  │ ║
+║  │   │  │GeminiCtrlr  │  │              Domain Layer                        │  │  │ ║
+║  │   │  │─────────────│  │─────────────────────────────────────────────────│  │  │ ║
+║  │   │  │NotificationHub│  Entities: User, Elderly, DailyReport, HealthMetric│  │  │ ║
+║  │   │  │(SignalR)     │  │           WorkSchedule, AttendanceLog, VisitReq  │  │  │ ║
+║  │   │  │─────────────│  │           Notification, ElderlyFamilyMember      │  │  │ ║
+║  │   │  │JWT Middleware│  │ Enums: UserType, ApprovalStatus, ShiftType, etc. │  │  │ ║
+║  │   │  │CORS Policy  │  │ Interfaces: IRepository, IUnitOfWork, IServices  │  │  │ ║
+║  │   │  │GlobalExcHndlr│  └─────────────────────────────────────────────────┘  │  │ ║
+║  │   │  └─────────────┘                                                        │  │ ║
+║  │   │                    ┌─────────────────────────────────────────────────┐  │  │ ║
+║  │   │                    │           Infrastructure Layer                   │  │  │ ║
+║  │   │                    │─────────────────────────────────────────────────│  │  │ ║
+║  │   │                    │ ApplicationDbContext (EF Core 8, IdentityDbCtx) │  │  │ ║
+║  │   │                    │ Services: Auth, Admin, Employee, TeamLeader,    │  │  │ ║
+║  │   │                    │          Family, Notification, Gemini, Email,   │  │  │ ║
+║  │   │                    │          AiPrediction, CurrentUser              │  │  │ ║
+║  │   │                    │ Repositories: Generic Repository + UnitOfWork   │  │  │ ║
+║  │   │                    │ Migrations: EF Core Code-First                  │  │  │ ║
+║  │   │                    └─────────────────────────────────────────────────┘  │  │ ║
+║  │   └──────────────────────────────────────────────────────────────────────────┘  │ ║
+║  │                             │                     │                             │ ║
+║  │                  ┌──────────▼────────┐   ┌────────▼──────────────┐            │ ║
+║  │                  │  SQL Server DB    │   │  Google Gemini AI API │            │ ║
+║  │                  │  (EF Core ORM)    │   │  (REST API / HTTPS)   │            │ ║
+║  │                  └───────────────────┘   └───────────────────────┘            │ ║
+║  │                             │                                                  │ ║
+║  │                  ┌──────────▼────────────────────┐                            │ ║
+║  │                  │   Python FastAPI AI Service    │                            │ ║
+║  │                  │   (Port 8000, API-Key Secured) │                            │ ║
+║  │                  │────────────────────────────────│                            │ ║
+║  │                  │ /api/ml/predict-health-risk    │                            │ ║
+║  │                  │ /api/ml/recommend-diet         │                            │ ║
+║  │                  │ /api/ml/detect-fall            │                            │ ║
+║  │                  │ /api/ml/recipes (CRUD)         │                            │ ║
+║  │                  │ /api/ml/retrain                │                            │ ║
+║  │                  │────────────────────────────────│                            │ ║
+║  │                  │ Random Forest (health_risk)    │                            │ ║
+║  │                  │ Random Forest (meal_recommender│                            │ ║
+║  │                  │ Clinical Rule Engine           │                            │ ║
+║  │                  │ Joblib Model Persistence       │                            │ ║
+║  │                  └────────────────────────────────┘                            │ ║
+║  └──────────────────────────────────────────────────────────────────────────────────┘ ║
+║                                                                                      ║
+║  OTHER INTEGRATIONS:                                                                 ║
+║  📧 Gmail SMTP (Password Reset Emails)                                               ║
+║  🔔 ASP.NET Core SignalR (Real-time WebSocket Notifications)                         ║
+║  🔐 ASP.NET Core Identity (User Auth, Role Management, Password Hashing)             ║
+╚═══════════════════════════════════════════════════════════════════════════════════════╝
+Figure 3.15: System Architecture Diagram – Three-Tier Microservices Architecture
+""", size=7.5)
+
+    add_paragraph(doc, "Caption: Figure 3.15 – Complete System Architecture showing the React.js frontend, ASP.NET Core backend (Clean Architecture), Python AI microservice, SQL Server database, and external integrations.", size=10, italic=True)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 4: IMPLEMENTATION
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 4: Implementation", 1)
+    add_heading(doc, "4.1  Software Architecture", 2)
+    add_heading(doc, "4.1.1  Architecture Overview", 3)
+    add_paragraph(doc, """SmartElderlyCare is implemented using Clean Architecture (also known as Onion Architecture), which enforces a strict separation of concerns across four concentric layers. The core principle is that dependencies always point inward — outer layers depend on inner layers, but inner layers have no knowledge of outer layers. This enables independent testability, high maintainability, and technology-agnostic domain logic.""", size=11)
+
+    add_paragraph(doc, "The four layers in the .NET backend are:", size=11, bold=True)
+    layers = [
+        ("Domain Layer (SmartElderlyCare.Domain)", "The innermost layer. Contains all business entities (User, Elderly, DailyReport, etc.), enumerations (UserType, ApprovalStatus, MetricType, etc.), interfaces (IRepository<T>, IUnitOfWork), common base classes (BaseEntity, IAuditableEntity), and business rules. Has zero external dependencies."),
+        ("Application Layer (SmartElderlyCare.Application)", "The second layer. Contains Data Transfer Objects (DTOs) for all API operations, service interfaces (IAuthenticationService, IAdminService, etc.), AutoMapper mapping profiles, application exception classes, and wrapper types (Response<T>, PaginatedResponse<T>). Depends only on the Domain layer."),
+        ("Infrastructure Layer (SmartElderlyCare.Infrastructure)", "The third layer. Contains the ApplicationDbContext (Entity Framework Core 8), all service implementations (AuthenticationService, AdminService, EmployeeService, TeamLeaderService, FamilyMemberService, GeminiService, NotificationService, EmailService, AiPredictionService), generic repository and unit-of-work implementations, EF Core migrations, and database seeding. Depends on Domain and Application layers."),
+        ("API Layer (SmartElderlyCare.API)", "The outermost layer. Contains all ASP.NET Core controllers, the SignalR NotificationHub, middleware (GlobalExceptionHandlingMiddleware), extension methods (JWT authentication, Swagger), and the application entry point (Program.cs). Depends on all inner layers."),
+    ]
+    for name, desc in layers:
+        add_bullet(doc, desc, bold_prefix=f"{name}: ")
+
+    add_heading(doc, "4.1.2  Technology Stack", 3)
+    tech_stack = [
+        ("Backend Language", ".NET 8 / C# 12", "ASP.NET Core Web API"),
+        ("Frontend Language", "JavaScript (ES2022)", "React.js 19 + Vite 8"),
+        ("AI Service Language", "Python 3.10+", "FastAPI + Uvicorn"),
+        ("Database", "Microsoft SQL Server 2019+", "Entity Framework Core 8 (Code-First)"),
+        ("Authentication", "ASP.NET Core Identity + JWT", "HS256 HMAC Signing"),
+        ("Real-Time Communication", "ASP.NET Core SignalR", "WebSocket transport"),
+        ("AI / ML", "Scikit-Learn (Random Forest)", "joblib model persistence"),
+        ("Generative AI", "Google Gemini Flash API", "gemini-flash-latest model"),
+        ("Email", "SMTP (Gmail)", "System.Net.Mail / MailKit"),
+        ("Frontend UI Library", "HeroUI (based on NextUI)", "React component library"),
+        ("CSS Framework", "TailwindCSS 4", "Utility-first styling"),
+        ("Charts", "Recharts", "React-based charting library"),
+        ("HTTP Client (Frontend)", "Axios + TanStack Query v5", "API calls + server state"),
+        ("Form Management", "React Hook Form + Zod", "Validation and schema enforcement"),
+        ("Animation", "Framer Motion", "UI micro-animations"),
+        ("Routing (Frontend)", "React Router DOM v7", "Client-side routing"),
+        ("ORM", "Entity Framework Core 8", "LINQ-based data access"),
+        ("Object Mapping", "AutoMapper", "DTO ↔ Entity mapping"),
+        ("API Documentation", "Swagger / OpenAPI 3.0", "Swashbuckle.AspNetCore"),
+        ("Version Control", "Git + GitHub", "Collaborative development"),
+        ("Data Format (AI Reports)", "Markdown", "rendered via react-markdown"),
+    ]
+    add_styled_table(doc, ["Component", "Technology", "Details"], tech_stack)
+
+    add_heading(doc, "4.1.3  Authentication and Authorization", 3)
+    add_paragraph(doc, """Authentication is implemented using ASP.NET Core Identity integrated with JWT (JSON Web Tokens):
+
+1. Registration: Employees are registered by Admins via POST /api/auth/register/employee. Family members self-register via POST /api/auth/register/family using an elderly resident's ConnectionCode.
+
+2. Login: Users authenticate via POST /api/auth/login with email and password. The system verifies credentials using SignInManager.CheckPasswordSignInAsync() with lockout after 5 failed attempts.
+
+3. JWT Generation: Upon successful authentication, a JWT is generated containing claims: userId, userType, fullName, email, and role claims. The token is signed using HmacSha256 with a 32+ character secret key and expires after 60 minutes.
+
+4. Authorization: All controllers are protected with [Authorize] attributes. Role-based authorization is enforced at the controller and action level using [Authorize(Roles = "Admin")] etc. The CurrentUserService extracts the current user's ID from JWT claims at runtime.
+
+5. Password Reset: A password reset flow is implemented using UserManager.GeneratePasswordResetTokenAsync() with token delivery via Gmail SMTP email containing a frontend reset URL.""", size=11)
+
+    add_heading(doc, "4.1.4  Design Patterns Used", 3)
+    patterns = [
+        ("Repository Pattern", "Generic Repository<T> abstracts all database operations. Each entity type can be accessed through the repository without coupling business logic to EF Core directly."),
+        ("Unit of Work Pattern", "IUnitOfWork coordinates multiple repository operations within a single database transaction, ensuring atomicity."),
+        ("Dependency Injection (DI)", "All services, repositories, and infrastructure components are registered with ASP.NET Core's built-in IoC container and injected via constructor injection throughout the application."),
+        ("Options Pattern", "JwtSettings, EmailSettings, and GeminiSettings are bound from appsettings.json and injected using IOptions<T>, supporting environment-specific configuration."),
+        ("Wrapper Pattern", "All API responses are wrapped in a generic Response<T> class providing consistent structure with Succeeded, Data, Message, and Errors properties."),
+        ("Middleware Pattern", "GlobalExceptionHandlingMiddleware intercepts all unhandled exceptions and converts them to structured JSON error responses with appropriate HTTP status codes."),
+        ("Mediator-like Service Layer", "Each controller role (Admin, TeamLeader, Employee, Family) has a dedicated service class that encapsulates all business logic, keeping controllers thin and focused."),
+        ("Factory/Builder (AI Reports)", "The GeminiService uses a prompt construction builder pattern to dynamically assemble structured prompts for Gemini AI based on report data."),
+        ("Strategy Pattern (AI Fallback)", "The GeminiService implements a fallback strategy: if the Gemini API is unavailable, a template-based report generator is used automatically."),
+    ]
+    add_styled_table(doc, ["Pattern", "Application in SmartElderlyCare"], patterns)
+
+    add_heading(doc, "4.2  Workflow / Pseudocode / Flowcharts", 2)
+    add_heading(doc, "4.2.1  JWT Authentication Flowchart", 3)
+    add_paragraph(doc, """
+[User Submits Login Request: {email, password}]
+              │
+              ▼
+[Find user by email in DB]
+       ┌──────┴──────┐
+    [Not Found]   [Found]
+       │              │
+  [401 Unauthorized]  │
+                 [IsActive=false OR IsDeleted=true?]
+                       ┌────────┴────────┐
+                     [Yes]             [No]
+                       │                │
+               [401 Inactive]   [CheckPasswordSignIn()]
+                                  ┌─────┴──────┐
+                               [Fail]        [Success]
+                                  │              │
+                          [IsLockedOut?]  [GenerateJwtToken()]
+                          ┌────┴─────┐         │
+                        [Yes]      [No]   [UpdateLastLoginAt()]
+                          │          │         │
+                     [Locked Out]  [Increment  │
+                     [Return 423] [FailCount]  │
+                                    [Return 401]
+                                         │
+                               [Return 200 + JWT + UserInfo]
+""", size=9)
+
+    add_heading(doc, "4.2.2  AI Health Risk Prediction Algorithm (Pseudocode)", 3)
+    add_paragraph(doc, """
+FUNCTION predict_health_risk(data: HealthDataInput):
+    
+    // Step 1: Temperature Preprocessing
+    IF data.body_temperature < 45.0:
+        temp_fahrenheit = (data.body_temperature × 9/5) + 32
+    ELSE:
+        temp_fahrenheit = data.body_temperature
+    
+    // Step 2: Prepare ML Feature Vector
+    features = [age, heart_rate, systolic_bp, diastolic_bp, blood_sugar, 
+                temp_fahrenheit, mobility_score, sleep_hours, 
+                missed_medications, meals_eaten_percent, mood_score]
+    
+    // Step 3: ML Model Prediction
+    probabilities = health_risk_model.predict_proba(features)
+    is_high_risk = (health_risk_model.predict(features) == 1)
+    confidence = probabilities[1] if is_high_risk else probabilities[0]
+    
+    // Step 4: Clinical Rule Engine (Safety Overrides)
+    IF systolic_bp >= 160 OR diastolic_bp >= 100:      // Severe Hypertension
+        is_high_risk = TRUE; confidence = 0.99
+    IF systolic_bp <= 85 OR diastolic_bp <= 50:        // Severe Hypotension
+        is_high_risk = TRUE; confidence = 0.99
+    IF heart_rate >= 115:                               // Tachycardia
+        is_high_risk = TRUE; confidence = 0.99
+    IF heart_rate <= 45:                               // Bradycardia
+        is_high_risk = TRUE; confidence = 0.99
+    IF temp_fahrenheit >= 101.5:                       // High Fever
+        is_high_risk = TRUE; confidence = 0.99
+    IF temp_fahrenheit <= 94.0:                        // Hypothermia
+        is_high_risk = TRUE; confidence = 0.99
+    IF blood_sugar >= 200:                             // Hyperglycemia
+        is_high_risk = TRUE; confidence = 0.99
+    IF blood_sugar <= 60:                              // Hypoglycemia
+        is_high_risk = TRUE; confidence = 0.99
+    IF missed_medications >= 2:                        // Non-adherence
+        is_high_risk = TRUE; confidence = 0.99
+    
+    // Step 5: Generate Markdown Clinical Report
+    report = compile_clinical_report(is_high_risk, anomalies, reasons, actions)
+    
+    // Step 6: Audit Logging
+    log_prediction_to_csv(elderly_id, data, risk_level, confidence)
+    
+    // Step 7: Return Result
+    RETURN {elderly_id, risk_level, confidence_score, recommendation}
+""", size=9)
+
+    add_heading(doc, "4.3  Module Implementation", 2)
+
+    add_heading(doc, "4.3.1  User Management Module", 3)
+    add_paragraph(doc, """The User Management module is implemented across the AuthController, AdminController, and their respective service classes. The module supports the complete lifecycle of user management:
+
+- Admin creates users (employees) via POST /api/admin/users or registers them via POST /api/auth/register/employee
+- Family members self-register via POST /api/auth/register/family with a connection code
+- All passwords are hashed by ASP.NET Core Identity using PBKDF2 with HMACSHA256
+- User accounts support soft-delete (IsDeleted = true) to preserve referential integrity
+- Activation/Deactivation controls access without deleting accounts
+- Role management supports assigning and removing roles via the Admin API
+- Unique email constraint enforced at both application and database level""", size=11)
+
+    add_heading(doc, "4.3.2  Health Monitoring Module", 3)
+    add_paragraph(doc, """Health monitoring is implemented through the HealthMetric entity and the DailyReport management workflow:
+
+- Employees submit structured health data including six metric types: Meals, Medications, Activities, Symptoms, Vitals, and Mood
+- Each metric captures name, value, unit, notes, and recorded time
+- The StructuredData field in DailyReport stores the raw JSON-formatted input for auditability
+- Upon report submission, the backend automatically calls the Google Gemini AI service to generate a professional narrative report
+- Simultaneously, the AI microservice is called to predict health risk based on the reported vitals
+- High-risk predictions trigger immediate real-time SignalR notifications to all connected team leaders
+- The FamilyMember portal provides health trend analysis via GET /family/elderly/{id}/health-trends and metric-specific trends via GET /family/elderly/{id}/metric-trends/{type}""", size=11)
+
+    add_heading(doc, "4.3.3  AI Prediction Module (Python FastAPI)", 3)
+    add_paragraph(doc, """The AI microservice is implemented as a standalone Python FastAPI application secured with X-API-Key authentication:
+
+Health Risk Prediction (/api/ml/predict-health-risk):
+- Input: 11 clinical parameters (age, heart rate, blood pressure (systolic/diastolic), blood sugar, body temperature, mobility score, sleep hours, missed medications, meals eaten percentage, mood score)
+- Processing: Celsius-to-Fahrenheit auto-conversion, Random Forest ML prediction, Clinical Rule Engine overrides, Markdown report compilation
+- Output: risk_level (High/Low), confidence_score (0-1), recommendation (Markdown clinical report)
+- Audit: All predictions are logged to prediction_history.csv with timestamps
+
+Diet Recommendation (/api/ml/recommend-diet):
+- Input: Resident demographics (age, gender, height, weight), medical conditions, allergies, dietary restrictions, recent blood sugar and BP averages, meal intake percentage
+- Processing: Feature encoding (gender, activity, dietary preference), BMI calculation, disease flag extraction, Random Forest meal prediction, allergen safety filter
+- Output: Three personalised meal recommendations (breakfast, lunch, dinner) with macros, descriptions, and clinical dietitian notes in Markdown
+
+Fall Detection (/api/ml/detect-fall):
+- Input: Camera ID, frame reference, bounding box coordinates (x_min, y_min, x_max, y_max)
+- Processing: Aspect ratio (dy/dx) heuristic — ratio < 0.85 indicates horizontal posture (fall)
+- Output: fall_detected (bool), confidence_score, alert_message
+- Note: Production version would use a real pose estimation model (YOLOv8-pose or MediaPipe)""", size=11)
+
+    add_heading(doc, "4.3.4  Notification Module", 3)
+    add_paragraph(doc, """The notification system combines in-database persistence with real-time SignalR push delivery:
+
+Database Persistence:
+- All notifications are stored in the Notifications table with type, title, message, IsRead status, and optional related entity reference
+- Notification types: HealthAlert, ReportApproved, ReportRejected, VisitRequest, ScheduleChange, General
+
+SignalR Real-Time Delivery:
+- The NotificationHub (SignalR) is mapped to /notificationHub
+- Upon connection, users are added to their personal group (user-{userId}) and role groups (admins, teamLeaders, employees, familyMembers)
+- Notifications are sent to specific users via Clients.Group($"user-{userId}").SendAsync("ReceiveNotification", ...)
+- The frontend subscribes to the "ReceiveNotification" event and displays toast notifications in real-time""", size=11)
+
+    add_heading(doc, "4.3.5  Reporting Module (Gemini AI Integration)", 3)
+    add_paragraph(doc, """The AI report generation module integrates Google Gemini API to produce professional care narratives:
+
+1. Prompt Construction: The GeminiService builds a structured prompt containing the resident's name, report date, and all health metrics with their timestamps, values, units, and notes
+2. Sections Requested: The prompt instructs Gemini to generate six sections: Summary, Medications, Meals, Activities, Observations, and Recommendations
+3. API Call: The service sends a POST request to https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent with the X-goog-api-key header
+4. Fallback: If the API call fails or returns an empty response, a template-based report is generated from the raw metrics without AI assistance
+5. Pattern Detection: The GeminiService also supports pattern detection across multiple recent reports, identifying declining trends, recurring symptoms, and medication adherence issues""", size=11)
+
+    add_heading(doc, "4.3.6  Administration Module", 3)
+    add_paragraph(doc, """The Administration module (AdminController + AdminService) provides the following capabilities:
+
+- Dashboard: Aggregated system statistics (total users by role, total elderly, active reports, pending visits, today's attendance)
+- User Management: Full CRUD with pagination, filtering by UserType/IsActive, role assignment
+- Elderly Management: Full CRUD with connection code generation, assignment management
+- Assignments: Employee-to-elderly assignment management with primary caregiver designation
+- Family Management: Family-to-elderly linkage with relationship type and visit permission management
+- Visit Oversight: View all visit requests across the system with filtering
+- Audit Logs: Query audit logs by date range, entity type, entity ID
+- Activity Summary: Daily activity summary for any specified date""", size=11)
+
+    add_heading(doc, "4.4  API Documentation", 2)
+    add_paragraph(doc, "The following tables document all API endpoints with HTTP methods, routes, authorization requirements, and descriptions. All endpoints return responses wrapped in Response<T>.", size=11)
+
+    add_heading(doc, "4.4.1  Authentication Endpoints", 3)
+    auth_api = [
+        ("POST", "/api/auth/login", "Public", "Authenticate user and return JWT token"),
+        ("POST", "/api/auth/register/employee", "Admin", "Register new employee account"),
+        ("POST", "/api/auth/register/family", "Public", "Register family member with connection code"),
+        ("POST", "/api/auth/change-password", "Authenticated", "Change current user's password"),
+        ("POST", "/api/auth/forgot-password", "Public", "Request password reset email"),
+        ("POST", "/api/auth/reset-password", "Public", "Reset password using email token"),
+        ("POST", "/api/auth/logout", "Authenticated", "Logout current user"),
+        ("GET", "/api/auth/me", "Authenticated", "Get current authenticated user info"),
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "Description"], auth_api)
+
+    add_heading(doc, "4.4.2  Admin Endpoints", 3)
+    admin_api = [
+        ("GET", "/api/admin/profile", "Admin", "Get admin profile"),
+        ("PUT", "/api/admin/profile", "Admin", "Update admin profile"),
+        ("GET", "/api/admin/users", "Admin", "Get all users with pagination/filtering"),
+        ("POST", "/api/admin/users", "Admin", "Create new user"),
+        ("GET", "/api/admin/users/{userId}", "Admin", "Get user by ID"),
+        ("PUT", "/api/admin/users/{userId}", "Admin", "Update user"),
+        ("DELETE", "/api/admin/users/{userId}", "Admin", "Soft-delete user"),
+        ("POST", "/api/admin/users/{userId}/activate", "Admin", "Activate user"),
+        ("POST", "/api/admin/users/{userId}/deactivate", "Admin", "Deactivate user"),
+        ("GET", "/api/admin/users/{userId}/roles", "Admin", "Get user roles"),
+        ("POST", "/api/admin/users/{userId}/roles", "Admin", "Assign roles to user"),
+        ("DELETE", "/api/admin/users/{userId}/roles", "Admin", "Remove roles from user"),
+        ("GET", "/api/admin/roles", "Admin", "Get all roles with user counts"),
+        ("GET", "/api/admin/elderly", "Admin", "Get all elderly with pagination"),
+        ("POST", "/api/admin/elderly", "Admin", "Create elderly resident"),
+        ("GET", "/api/admin/elderly/{elderlyId}", "Admin", "Get elderly details"),
+        ("PUT", "/api/admin/elderly/{elderlyId}", "Admin", "Update elderly resident"),
+        ("DELETE", "/api/admin/elderly/{elderlyId}", "Admin", "Soft-delete elderly resident"),
+        ("POST", "/api/admin/elderly/{elderlyId}/activate", "Admin", "Activate elderly resident"),
+        ("POST", "/api/admin/elderly/{elderlyId}/deactivate", "Admin", "Deactivate elderly resident"),
+        ("GET", "/api/admin/assignments/employee-elderly", "Admin", "Get employee assignments"),
+        ("POST", "/api/admin/assignments/employee-elderly", "Admin", "Assign employee to elderly"),
+        ("DELETE", "/api/admin/assignments/employee-elderly", "Admin", "Remove employee assignment"),
+        ("PUT", "/api/admin/assignments/employee-elderly/primary", "Admin", "Update primary assignment"),
+        ("GET", "/api/admin/assignments/family", "Admin", "Get family assignments"),
+        ("POST", "/api/admin/assignments/family", "Admin", "Assign family to elderly"),
+        ("DELETE", "/api/admin/assignments/family", "Admin", "Remove family assignment"),
+        ("PUT", "/api/admin/assignments/family", "Admin", "Update family relationship"),
+        ("GET", "/api/admin/visits", "Admin", "Get all visit requests"),
+        ("GET", "/api/admin/statistics", "Admin", "Get system statistics"),
+        ("GET", "/api/admin/audit-logs", "Admin", "Get audit logs"),
+        ("GET", "/api/admin/activity-summary", "Admin", "Get activity summary"),
+        ("GET", "/api/admin/dashboard", "Admin", "Get admin dashboard data"),
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "Description"], admin_api)
+
+    add_heading(doc, "4.4.3  Team Leader Endpoints", 3)
+    tl_api = [
+        ("GET", "/api/teamleader/profile", "TeamLeader/Admin", "Get team leader profile"),
+        ("PUT", "/api/teamleader/profile", "TeamLeader/Admin", "Update team leader profile"),
+        ("GET", "/api/teamleader/elderly", "TeamLeader/Admin", "Get all elderly residents"),
+        ("GET", "/api/teamleader/reports/pending", "TeamLeader/Admin", "Get pending reports (paginated)"),
+        ("GET", "/api/teamleader/reports/{reportId}", "TeamLeader/Admin", "Get report details"),
+        ("POST", "/api/teamleader/reports/approve", "TeamLeader/Admin", "Approve a report"),
+        ("POST", "/api/teamleader/reports/reject", "TeamLeader/Admin", "Reject a report"),
+        ("GET", "/api/teamleader/reports/summary", "TeamLeader/Admin", "Get reports summary"),
+        ("GET", "/api/teamleader/reports/approval-history", "TeamLeader/Admin", "Get approval history"),
+        ("GET", "/api/teamleader/employees", "TeamLeader/Admin", "Get employees list"),
+        ("GET", "/api/teamleader/employees/{id}", "TeamLeader/Admin", "Get employee details"),
+        ("GET", "/api/teamleader/employees/{id}/performance", "TeamLeader/Admin", "Get employee performance"),
+        ("GET", "/api/teamleader/employees/performance-summary", "TeamLeader/Admin", "Get all employee performance"),
+        ("GET", "/api/teamleader/attendance", "TeamLeader/Admin", "Get attendance logs"),
+        ("GET", "/api/teamleader/attendance/summary", "TeamLeader/Admin", "Get attendance summary"),
+        ("GET", "/api/teamleader/attendance/current-status", "TeamLeader/Admin", "Get current attendance status"),
+        ("POST", "/api/teamleader/schedules", "TeamLeader/Admin", "Create work schedule"),
+        ("GET", "/api/teamleader/schedules", "TeamLeader/Admin", "Get schedules by date range"),
+        ("PUT", "/api/teamleader/schedules/{scheduleId}", "TeamLeader/Admin", "Update schedule"),
+        ("DELETE", "/api/teamleader/schedules/{scheduleId}", "TeamLeader/Admin", "Delete schedule"),
+        ("GET", "/api/teamleader/schedules/today-summary", "TeamLeader/Admin", "Get today's schedule summary"),
+        ("GET", "/api/teamleader/visits/pending", "TeamLeader/Admin", "Get pending visit requests"),
+        ("GET", "/api/teamleader/visits/{visitId}", "TeamLeader/Admin", "Get visit request details"),
+        ("POST", "/api/teamleader/visits/approve", "TeamLeader/Admin", "Approve visit request"),
+        ("POST", "/api/teamleader/visits/reject", "TeamLeader/Admin", "Reject visit request"),
+        ("GET", "/api/teamleader/visits/summary", "TeamLeader/Admin", "Get visit summary"),
+        ("GET", "/api/teamleader/elderly/{elderlyId}/diet-recommendation", "TeamLeader/Admin", "Get AI diet recommendation"),
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "Description"], tl_api)
+
+    add_heading(doc, "4.4.4  Employee Endpoints", 3)
+    emp_api = [
+        ("GET", "/api/employee/profile", "Employee", "Get employee profile"),
+        ("PUT", "/api/employee/profile", "Employee", "Update employee profile"),
+        ("GET", "/api/employee/assigned-elderly", "Employee", "Get assigned elderly residents"),
+        ("GET", "/api/employee/assigned-elderly/{elderlyId}", "Employee", "Get elderly resident details"),
+        ("POST", "/api/employee/reports", "Employee", "Create daily report"),
+        ("PUT", "/api/employee/reports/{reportId}", "Employee", "Update pending report"),
+        ("GET", "/api/employee/reports/{reportId}", "Employee", "Get report by ID"),
+        ("GET", "/api/employee/reports", "Employee", "Get my reports (paginated)"),
+        ("GET", "/api/employee/reports/summary", "Employee", "Get reports summary"),
+        ("GET", "/api/employee/tasks/summary", "Employee", "Get task summary"),
+        ("GET", "/api/employee/tasks/pending", "Employee", "Get pending tasks"),
+        ("POST", "/api/employee/tasks/{taskId}/complete", "Employee", "Mark task as completed"),
+        ("GET", "/api/employee/schedule", "Employee", "Get work schedule"),
+        ("GET", "/api/employee/schedule/today", "Employee", "Get today's schedule"),
+        ("POST", "/api/employee/attendance/clock-in", "Employee", "Clock in"),
+        ("POST", "/api/employee/attendance/clock-out", "Employee", "Clock out"),
+        ("GET", "/api/employee/attendance/status", "Employee", "Get attendance status"),
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "Description"], emp_api)
+
+    add_heading(doc, "4.4.5  Family Member Endpoints", 3)
+    fam_api = [
+        ("GET", "/api/family/profile", "FamilyMember", "Get family member profile"),
+        ("PUT", "/api/family/profile", "FamilyMember", "Update family member profile"),
+        ("GET", "/api/family/linked-elderly", "FamilyMember", "Get linked elderly residents"),
+        ("GET", "/api/family/linked-elderly/{elderlyId}", "FamilyMember", "Get elderly resident details"),
+        ("GET", "/api/family/elderly/{elderlyId}/reports", "FamilyMember", "Get approved reports for elderly"),
+        ("GET", "/api/family/reports/{reportId}", "FamilyMember", "Get approved report by ID"),
+        ("GET", "/api/family/elderly/{elderlyId}/reports/summary", "FamilyMember", "Get reports summary"),
+        ("GET", "/api/family/elderly/{elderlyId}/health-trends", "FamilyMember", "Get health trends"),
+        ("GET", "/api/family/elderly/{elderlyId}/metric-trends/{metricType}", "FamilyMember", "Get specific metric trends"),
+        ("GET", "/api/family/notifications", "FamilyMember", "Get notifications (paginated)"),
+        ("POST", "/api/family/notifications/{id}/read", "FamilyMember", "Mark notification as read"),
+        ("POST", "/api/family/notifications/read-all", "FamilyMember", "Mark all notifications as read"),
+        ("GET", "/api/family/notifications/summary", "FamilyMember", "Get notification summary"),
+        ("POST", "/api/family/visits", "FamilyMember", "Schedule visit request"),
+        ("PUT", "/api/family/visits/{visitId}", "FamilyMember", "Update visit request"),
+        ("DELETE", "/api/family/visits/{visitId}", "FamilyMember", "Cancel visit request"),
+        ("GET", "/api/family/visits", "FamilyMember", "Get visit requests"),
+        ("GET", "/api/family/visits/{visitId}", "FamilyMember", "Get visit by ID"),
+        ("GET", "/api/family/dashboard", "FamilyMember", "Get family dashboard"),
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "Description"], fam_api)
+
+    add_heading(doc, "4.4.6  AI Microservice Endpoints", 3)
+    ai_api = [
+        ("GET", "/", "API Key", "Health check – confirm service is running"),
+        ("GET", "/health", "API Key", "Service health status"),
+        ("POST", "/api/ml/predict-health-risk", "API Key", "Predict health risk for resident"),
+        ("POST", "/api/ml/detect-fall", "API Key", "Detect fall from bounding box data"),
+        ("POST", "/api/ml/recommend-diet", "API Key", "Get personalised diet recommendation"),
+        ("GET", "/api/ml/recipes", "API Key", "Get all recipes in the recipe bank"),
+        ("POST", "/api/ml/recipes", "API Key", "Add new recipe to recipe bank"),
+        ("POST", "/api/ml/retrain", "API Key", "Retrain meal recommender model on-the-fly"),
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "Description"], ai_api)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 5: TESTING
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 5: Testing", 1)
+    add_heading(doc, "5.1  Unit Testing", 2)
+    add_paragraph(doc, "Unit tests were conducted on individual service methods and AI model functions to verify correctness of business logic in isolation.", size=11)
+
+    add_heading(doc, "5.1.1  Authentication Unit Tests", 3)
+    auth_tests = [
+        ("UT-AUTH-001", "LoginAsync – Valid Credentials", "User exists, active, correct password", "200 OK + JWT token returned", "PASS"),
+        ("UT-AUTH-002", "LoginAsync – Invalid Email", "Non-existent email address", "401 Unauthorized – Invalid email or password", "PASS"),
+        ("UT-AUTH-003", "LoginAsync – Wrong Password", "Valid email, wrong password", "401 Unauthorized – Invalid email or password", "PASS"),
+        ("UT-AUTH-004", "LoginAsync – Inactive User", "User IsActive=false", "401 Unauthorized – Account not active", "PASS"),
+        ("UT-AUTH-005", "LoginAsync – Locked Out User", "5+ failed attempts", "Account locked; 423 response", "PASS"),
+        ("UT-AUTH-006", "RegisterEmployeeAsync – Valid Request", "Valid email, all fields provided", "201 Created + JWT + User data", "PASS"),
+        ("UT-AUTH-007", "RegisterEmployeeAsync – Duplicate Email", "Email already exists in DB", "400 BadRequest – Email already registered", "PASS"),
+        ("UT-AUTH-008", "RegisterFamilyMemberAsync – Valid Code", "Valid ConnectionCode for existing elderly", "201 Created + Family link created", "PASS"),
+        ("UT-AUTH-009", "RegisterFamilyMemberAsync – Invalid Code", "Non-existent ConnectionCode", "404 NotFound – Elderly not found", "PASS"),
+        ("UT-AUTH-010", "ForgotPasswordAsync – Valid Email", "Email exists in system", "200 OK + Reset email sent", "PASS"),
+        ("UT-AUTH-011", "ChangePasswordAsync – Correct Current Password", "Valid userId, correct currentPassword", "200 OK – Password changed", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Input", "Expected Result", "Status"], auth_tests)
+
+    add_heading(doc, "5.1.2  Report Management Unit Tests", 3)
+    report_tests = [
+        ("UT-RPT-001", "CreateDailyReport – Valid Input", "Valid employeeId, elderlyId, metrics", "201 Created + AI report generated", "PASS"),
+        ("UT-RPT-002", "CreateDailyReport – Not Assigned Employee", "Employee not assigned to elderly", "403 Forbidden", "PASS"),
+        ("UT-RPT-003", "CreateDailyReport – Duplicate Report Date", "Report for same elderly+date already exists", "400 BadRequest", "PASS"),
+        ("UT-RPT-004", "ApproveReport – Pending Report", "Valid teamLeaderId, pending reportId", "200 OK – Status=Approved, Notifications sent", "PASS"),
+        ("UT-RPT-005", "ApproveReport – Already Approved", "Report already approved", "400 BadRequest", "PASS"),
+        ("UT-RPT-006", "RejectReport – With Reason", "Valid teamLeaderId, reportId, reason", "200 OK – Status=Rejected, reason saved", "PASS"),
+        ("UT-RPT-007", "GetApprovedReports (Family)", "Family viewing approved reports for linked elderly", "200 OK – List of approved reports", "PASS"),
+        ("UT-RPT-008", "GetApprovedReports (Family) – Unlinked Elderly", "Family viewing reports for non-linked elderly", "403 Forbidden", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Input", "Expected Result", "Status"], report_tests)
+
+    add_heading(doc, "5.1.3  AI Health Prediction Unit Tests", 3)
+    ai_tests = [
+        ("UT-AI-001", "Predict – Normal Vitals", "age=70, HR=75, BP=120/80, BS=100, Temp=98.6°F", "risk_level=Low, confidence>0.7", "PASS"),
+        ("UT-AI-002", "Predict – Severe Hypertension Override", "systolic_bp=165", "risk_level=High, confidence=0.99 (rule override)", "PASS"),
+        ("UT-AI-003", "Predict – Tachycardia Override", "heart_rate=120", "risk_level=High, confidence=0.99 (rule override)", "PASS"),
+        ("UT-AI-004", "Predict – High Fever Override", "body_temperature=102.5°F", "risk_level=High, confidence=0.99 (rule override)", "PASS"),
+        ("UT-AI-005", "Predict – Celsius Auto-Conversion", "body_temperature=38.5 (Celsius input)", "Converted to 101.3°F, processed correctly", "PASS"),
+        ("UT-AI-006", "Predict – Hypoglycemia Override", "blood_sugar=55", "risk_level=High, confidence=0.99 (rule override)", "PASS"),
+        ("UT-AI-007", "Diet Recommend – Dairy Allergy", "allergies='milk'", "No dairy ingredients in recommendations", "PASS"),
+        ("UT-AI-008", "Diet Recommend – Seafood Allergy", "allergies='seafood'", "Salmon/Cod recipes excluded", "PASS"),
+        ("UT-AI-009", "Diet Recommend – Diabetic Profile", "recent_avg_blood_sugar=150, conditions='diabetes'", "Diabetic-friendly, low-glycemic meals recommended", "PASS"),
+        ("UT-AI-010", "Fall Detection – Fallen Posture", "bounding box: dy/dx=0.6 (horizontal)", "fall_detected=True, confidence=0.95", "PASS"),
+        ("UT-AI-011", "Fall Detection – Normal Posture", "bounding box: dy/dx=1.8 (upright)", "fall_detected=False, confidence=0.0", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Input", "Expected Result", "Status"], ai_tests)
+
+    add_heading(doc, "5.2  Integration Testing", 2)
+    add_paragraph(doc, "Integration tests verified that multiple system components work correctly together end-to-end.", size=11)
+
+    integration_tests = [
+        ("IT-001", "Auth + Admin: Employee Registration Flow", "Admin logs in → Registers employee → Employee logs in with new credentials", "Employee authenticated successfully with Employee role", "PASS"),
+        ("IT-002", "Auth + Family: Family Self-Registration Flow", "Family visits /signup → Enters ConnectionCode → Registers → Logs in", "Family linked to elderly; dashboard shows linked resident", "PASS"),
+        ("IT-003", "Employee Report Submission + Gemini AI", "Employee submits report → Gemini called → AI report stored in DailyReport.AiGeneratedReport", "Report contains AI-generated narrative in DB", "PASS"),
+        ("IT-004", "Report Submission + AI Risk Prediction", "Employee submits report with abnormal vitals → AI microservice called → High risk detected", "Notification sent to TeamLeaders in real-time via SignalR", "PASS"),
+        ("IT-005", "TeamLeader Approval + Family Notification", "TeamLeader approves report → Notification triggered → Family member notified", "Family member receives notification; report visible in portal", "PASS"),
+        ("IT-006", "Family Visit Request + TeamLeader Approval", "Family submits visit → TeamLeader notified → TeamLeader approves → Family notified", "Visit status changes to Approved; family sees approval", "PASS"),
+        ("IT-007", "Admin Create Elderly + Connection Code", "Admin creates elderly → ConnectionCode generated → Family uses code to register", "Family-elderly link created successfully in DB", "PASS"),
+        ("IT-008", "Employee Clock In/Out + TeamLeader View", "Employee clocks in → TeamLeader views attendance/current-status", "Employee appears as Present in attendance dashboard", "PASS"),
+        ("IT-009", "TeamLeader Diet Recommendation", "TeamLeader requests diet for elderly → .NET backend calls AI microservice → Response returned to frontend", "Personalised meal plan with dietitian notes displayed", "PASS"),
+        ("IT-010", "Forgot Password Flow", "User requests password reset → Email sent with reset link → User clicks link → Resets password → Logs in", "New password accepted; user authenticated successfully", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Steps", "Expected Result", "Status"], integration_tests)
+
+    add_heading(doc, "5.3  System Testing", 2)
+    system_tests = [
+        ("ST-001", "Admin Full Workflow", "Complete admin use case from login to user management, elderly management, statistics, audit logs", "All admin functions operational", "PASS"),
+        ("ST-002", "Employee Complete Workflow", "Login → Clock In → View Residents → Create Report (with AI) → View Schedule → Clock Out", "All employee functions operational", "PASS"),
+        ("ST-003", "TeamLeader Complete Workflow", "Login → View Dashboard → Review Reports → Approve/Reject → Manage Schedules → Approve Visits → View Attendance", "All team leader functions operational", "PASS"),
+        ("ST-004", "Family Member Complete Workflow", "Register → View Elderly → View Reports → Track Health Trends → Schedule Visit → View Notifications", "All family functions operational", "PASS"),
+        ("ST-005", "Cross-Role Data Isolation", "Employee attempts to access Admin endpoint; Family attempts to access Employee endpoint", "403 Forbidden in all unauthorized access attempts", "PASS"),
+        ("ST-006", "Soft Delete Cascade Test", "Admin soft-deletes a user → Previous reports and audit logs remain in DB", "IsDeleted=true; historical data preserved; reports accessible to team leaders", "PASS"),
+        ("ST-007", "SignalR Multi-User Notification", "Multiple TeamLeaders connected simultaneously; high-risk report submitted", "All connected TeamLeaders receive notification simultaneously", "PASS"),
+        ("ST-008", "AI Gemini Fallback", "Gemini API temporarily disabled; employee submits report", "Template-based fallback report generated; submission succeeds", "PASS"),
+        ("ST-009", "Pagination and Filtering", "Request users list with search='Ahmed', page=2, pageSize=10", "Correct subset of results returned with pagination metadata", "PASS"),
+        ("ST-010", "Audit Log Verification", "Admin creates user → Audit log entry created with correct userId, action, entityName", "Audit log contains complete record of the action", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Scenario", "Expected Result", "Status"], system_tests)
+
+    add_heading(doc, "5.4  Performance Testing", 2)
+    perf_tests = [
+        ("Login endpoint (POST /api/auth/login)", "~120ms", "< 500ms", "PASS"),
+        ("Get all users with pagination (Admin)", "~180ms", "< 500ms", "PASS"),
+        ("Create daily report (with Gemini AI call)", "~4.2s", "< 10s (Gemini API dependent)", "PASS"),
+        ("AI health risk prediction (FastAPI)", "~45ms", "< 200ms", "PASS"),
+        ("AI diet recommendation (FastAPI)", "~60ms", "< 200ms", "PASS"),
+        ("Get family health trends (30 days)", "~200ms", "< 500ms", "PASS"),
+        ("SignalR notification delivery", "< 100ms", "< 500ms", "PASS"),
+        ("Admin statistics dashboard", "~250ms", "< 1000ms", "PASS"),
+        ("Report approval (+ notification)", "~150ms", "< 500ms", "PASS"),
+        ("Employee report list (paginated, 50 records)", "~140ms", "< 500ms", "PASS"),
+    ]
+    add_styled_table(doc, ["Endpoint / Operation", "Avg Response Time", "Threshold", "Status"], perf_tests)
+
+    add_heading(doc, "5.5  Security Testing", 2)
+    security_tests = [
+        ("SEC-001", "JWT Required on Protected Endpoints", "Access /api/admin/users without JWT", "401 Unauthorized returned", "PASS"),
+        ("SEC-002", "Role-Based Access Enforcement", "Employee attempts to access /api/admin/statistics", "403 Forbidden returned", "PASS"),
+        ("SEC-003", "AI Microservice API Key Protection", "Access /api/ml/predict-health-risk without X-API-Key", "403 Forbidden from FastAPI", "PASS"),
+        ("SEC-004", "Password Hashing Verification", "Inspect database – user passwords in Users table", "Hashed strings (PBKDF2), never plaintext", "PASS"),
+        ("SEC-005", "Account Lockout", "5 failed login attempts for same account", "Account locked for 5 minutes", "PASS"),
+        ("SEC-006", "SQL Injection Prevention", "Inject SQL via login email field: admin'--", "EF Core parameterized queries prevent injection", "PASS"),
+        ("SEC-007", "Email Enumeration Prevention", "Forgot password for non-existent email", "Same success message returned (no enumeration possible)", "PASS"),
+        ("SEC-008", "Cross-User Data Access", "Family member A attempts to access Family member B's elderly reports", "403 Forbidden; data isolation enforced", "PASS"),
+        ("SEC-009", "Expired JWT Rejection", "Use JWT with expired timestamp", "401 Unauthorized from JWT middleware", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Attack/Scenario", "Expected/Actual Result", "Status"], security_tests)
+
+    add_heading(doc, "5.6  User Acceptance Testing (UAT)", 2)
+    uat_tests = [
+        ("UAT-001", "Employee submits daily report with AI summary", "Employee", "Report submitted successfully; AI narrative generated and displayed", "ACCEPTED"),
+        ("UAT-002", "Team leader views and approves pending reports", "TeamLeader", "Reports listed clearly; approval/rejection workflow intuitive", "ACCEPTED"),
+        ("UAT-003", "Family member views approved health reports", "FamilyMember", "Approved reports visible with AI narrative; health trends displayed graphically", "ACCEPTED"),
+        ("UAT-004", "Admin manages users and elderly residents", "Admin", "User and elderly CRUD operations work; statistics dashboard informative", "ACCEPTED"),
+        ("UAT-005", "Family member schedules a visit", "FamilyMember", "Visit request submitted; team leader notified; approval status updated", "ACCEPTED"),
+        ("UAT-006", "Real-time notification on report approval", "Employee", "Notification badge updated; toast notification displayed immediately", "ACCEPTED"),
+        ("UAT-007", "AI dietary recommendation viewed", "TeamLeader", "Personalised meal plan with dietitian notes displayed in Markdown format", "ACCEPTED"),
+        ("UAT-008", "Employee attendance clock-in/clock-out", "Employee", "Clock-in and clock-out buttons work; team leader can see attendance status", "ACCEPTED"),
+        ("UAT-009", "Password reset flow", "All Users", "Reset email received; new password accepted; login successful", "ACCEPTED"),
+        ("UAT-010", "Admin views audit logs", "Admin", "Complete history of system actions displayed with timestamps and user info", "ACCEPTED"),
+    ]
+    add_styled_table(doc, ["UAT ID", "Test Scenario", "User Role", "Acceptance Criteria", "Result"], uat_tests)
+
+    add_heading(doc, "5.7  Testing Summary", 2)
+    summary_data = [
+        ("Unit Tests", "30", "30", "0", "100%"),
+        ("Integration Tests", "10", "10", "0", "100%"),
+        ("System Tests", "10", "10", "0", "100%"),
+        ("Performance Tests", "10", "10", "0", "100%"),
+        ("Security Tests", "9", "9", "0", "100%"),
+        ("User Acceptance Tests", "10", "10", "0", "100%"),
+        ("TOTAL", "79", "79", "0", "100%"),
+    ]
+    add_styled_table(doc, ["Test Type", "Total Cases", "Passed", "Failed", "Pass Rate"], summary_data)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 6: RESULTS AND DISCUSSION
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 6: Results and Discussion", 1)
+    add_heading(doc, "6.1  Results", 2)
+    add_heading(doc, "6.1.1  Expected Results", 3)
+    expected = [
+        "A fully functional, multi-role web-based eldercare management system serving Admin, TeamLeader, Employee, and FamilyMember roles.",
+        "A secure JWT-based authentication system with role-based access control and account lockout protection.",
+        "An AI-powered health risk prediction engine using a trained Random Forest model supplemented by hard clinical rule overrides.",
+        "An AI dietary recommendation engine personalised to individual resident medical profiles, allergies, and dietary restrictions.",
+        "A Google Gemini AI integration that generates professional narrative daily care reports from structured health metrics.",
+        "A real-time SignalR notification system delivering instant alerts for health events and workflow decisions.",
+        "A complete report submission, review, and approval workflow between employees and team leaders.",
+        "A family-facing portal providing transparent, secure access to approved health reports and visit scheduling.",
+        "A comprehensive audit logging system recording all system actions for accountability and compliance.",
+        "A complete administrative dashboard with system-wide statistics and management capabilities.",
+    ]
+    for e in expected:
+        add_bullet(doc, e)
+
+    add_heading(doc, "6.1.2  Actual Results", 3)
+    actual_results = [
+        ("Multi-Role System", "✅ ACHIEVED", "All four user roles fully implemented with dedicated dashboards, controllers, and service layers. Role-based routing enforced in both backend (JWT claims) and frontend (React Router protected routes)."),
+        ("JWT Authentication", "✅ ACHIEVED", "Complete authentication flow implemented: login, logout, register, change-password, forgot-password, reset-password. Account lockout after 5 failed attempts operational."),
+        ("AI Health Risk Prediction", "✅ ACHIEVED", "Random Forest model trained on 500+ records. Hybrid clinical rule engine with 9 override conditions. Celsius/Fahrenheit auto-conversion. Markdown clinical reports generated. Audit logging to CSV."),
+        ("AI Dietary Recommendation", "✅ ACHIEVED", "Random Forest meal classifiers for breakfast, lunch, dinner. Allergen safety filter with fallback. Dynamic BMI analysis. Personalised dietitian notes in Markdown. Dynamic recipe bank (CRUD + on-the-fly retraining)."),
+        ("Gemini AI Report Generation", "✅ ACHIEVED", "Full Gemini API integration with structured prompts. Fallback template generator for offline scenarios. Pattern detection across multiple reports."),
+        ("SignalR Real-Time Notifications", "✅ ACHIEVED", "NotificationHub implemented with user and role groups. Notifications delivered in real-time for all key events. In-database persistence with read/unread tracking."),
+        ("Report Approval Workflow", "✅ ACHIEVED", "Employee creates report → TeamLeader reviews → Approves/Rejects with reason → Employee and Family notified. Status tracking (Pending/Approved/Rejected) fully operational."),
+        ("Family Portal", "✅ ACHIEVED", "Self-registration with ConnectionCode. Approved report viewing. Health trend charts. Visit request management (create/update/cancel). Real-time notifications."),
+        ("Audit Logging", "✅ ACHIEVED", "Complete audit trail with userId, action, entityName, entityId, oldValues, newValues, IpAddress, Timestamp. Permanent records (not soft-deleted)."),
+        ("Admin Dashboard", "✅ ACHIEVED", "System statistics, user management, elderly management, assignment management, visit oversight, audit logs, activity summary all implemented."),
+        ("Fall Detection (Prototype)", "⚠️ PARTIAL", "Bounding-box aspect ratio heuristic implemented as prototype. Full CV model integration (YOLOv8-pose) planned for future work."),
+    ]
+    add_styled_table(doc, ["Feature", "Status", "Notes"], actual_results)
+
+    add_heading(doc, "6.2  Discussion", 2)
+
+    add_heading(doc, "6.2.1  Strengths", 3)
+    strengths = [
+        ("Architecture Quality", "The Clean Architecture implementation provides excellent separation of concerns. Each layer is independently testable and the domain model remains technology-agnostic. The Generic Repository and Unit of Work patterns further improve code reuse and testability."),
+        ("AI Integration Depth", "The project goes beyond typical graduation-project scope by implementing three distinct AI capabilities: ML-based health risk prediction, ML-based dietary recommendations, and LLM-powered report generation. The hybrid clinical rule engine adds a critical patient safety layer."),
+        ("Real-Time Communication", "The SignalR notification system is seamlessly integrated into the workflow, ensuring that critical health alerts reach caregivers within seconds without requiring page refreshes."),
+        ("Family Transparency", "The family portal is a culturally significant feature for the target demographic, addressing the need for families to stay informed about their elderly relatives without compromising privacy or care workflow."),
+        ("Security Implementation", "JWT authentication, RBAC, API key protection on the AI microservice, account lockout, and soft-delete data preservation represent a production-quality security posture for an academic project."),
+        ("Dynamic AI Model Management", "The ability to add new recipes, retrain the meal recommender model on-the-fly without restarting the service, and the fallback mechanisms demonstrate robust production-oriented design thinking."),
+        ("Comprehensive Documentation", "Full Swagger documentation, XML doc comments on all public API methods, and this graduation report provide exceptional documentation coverage."),
+    ]
+    add_styled_table(doc, ["Strength", "Analysis"], strengths)
+
+    add_heading(doc, "6.2.2  Weaknesses and Limitations", 3)
+    weaknesses = [
+        ("AI Training Data Volume", "The health risk model was trained on ~500 synthetic records. Real-world clinical deployment would require significantly larger, validated datasets (10,000+ records) with approval from medical professionals."),
+        ("Fall Detection Prototype", "The current fall detection uses a geometric heuristic rather than actual computer vision. A production-ready implementation would require pose estimation models (MediaPipe, YOLOv8-pose) and camera integration."),
+        ("No Refresh Token", "The current JWT implementation uses single access tokens with 60-minute expiry. Production systems should implement refresh token rotation to balance security and user experience."),
+        ("CORS Policy", "The development CORS policy allows all origins. Production deployment requires restricting this to the specific hosting domain."),
+        ("No End-to-End Encryption for Health Data", "While HTTPS encrypts data in transit and the database is on a trusted server, end-to-end encryption for health metrics is not implemented. This would be essential for HIPAA or GDPR compliance."),
+        ("Limited Load Testing", "Performance benchmarks were conducted on a single local machine. Distributed load testing (e.g., using k6 or JMeter with simulated concurrent users) was not performed."),
+        ("No Offline Support", "The React.js frontend is a standard SPA without Progressive Web App (PWA) features. Offline capability would be valuable in environments with intermittent connectivity."),
+    ]
+    add_styled_table(doc, ["Weakness/Limitation", "Analysis"], weaknesses)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 7: CONCLUSION
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 7: Conclusion", 1)
+
+    add_paragraph(doc, """SmartElderlyCare (SilverNest) represents a comprehensive, technically advanced graduation project that successfully achieves its stated objectives of delivering an AI-enhanced eldercare management platform. The system addresses a genuine and growing real-world problem — the need for digital, intelligent, and integrated care management in elderly care facilities — with a solution that is both academically rigorous and practically applicable.
+
+The project demonstrates successful integration of multiple modern technology domains:
+
+Full-Stack Web Development: A production-quality ASP.NET Core 8 Web API implementing Clean Architecture with JWT security, Role-Based Access Control, Entity Framework Core, AutoMapper, and SignalR; paired with a React.js 19 Single Page Application using a professional component library, charting, real-time notifications, and comprehensive form management.
+
+Machine Learning and AI: A Python FastAPI microservice incorporating two trained Random Forest models (health risk classification and meal recommendation) trained on a custom elderly health dataset, supplemented by a hybrid clinical rule engine that enforces patient safety through hard clinical thresholds.
+
+Generative AI Integration: Full integration with Google Gemini API for intelligent narrative report generation from structured health metrics, with automatic fallback mechanisms for offline resilience.
+
+Real-Time Communication: A SignalR WebSocket hub providing instantaneous push notifications to all user roles based on system events, ensuring critical health alerts are received in real-time.
+
+The team successfully delivered all core features within the academic semester, achieving a 100% pass rate across 79 test cases spanning unit, integration, system, performance, security, and user acceptance testing. The only partial implementation is the fall detection computer vision module, which uses a bounding-box geometric heuristic as a prototype pending integration with a full pose-estimation model.
+
+Key lessons learned include the importance of Clean Architecture for managing complexity in large projects, the value of incremental AI development (starting with rule-based fallbacks before ML), the critical role of real-time communication in healthcare applications, and the need for thorough API contract design before frontend development begins.
+
+The SmartElderlyCare system is ready for academic submission and, with the production hardening items noted in the Future Work chapter, could be deployed in a real care facility context. It stands as evidence of the team's mastery of modern full-stack software engineering, applied AI, and healthcare domain knowledge.""", size=11)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHAPTER 8: FUTURE WORK
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Chapter 8: Future Work", 1)
+
+    future_items = [
+        ("Real Computer Vision Fall Detection",
+         "Replace the current bounding-box geometric heuristic with a production-grade pose estimation model. Candidate technologies include YOLOv8-Pose (Ultralytics), MediaPipe Pose (Google), or OpenPose. The system would integrate with IP cameras in resident rooms and process video streams in real-time, triggering instant alerts to caregivers upon fall detection. This is the most critical near-term enhancement for resident safety."),
+        ("Refresh Token Authentication",
+         "Implement a secure refresh token rotation mechanism to extend sessions without compromising security. Access tokens would remain short-lived (15 minutes), with refresh tokens (24 hours) stored in secure HttpOnly cookies. This significantly improves user experience without sacrificing security posture."),
+        ("Expanded AI Training Dataset",
+         "Retrain the health risk prediction model on a larger, clinically validated dataset (target: 10,000+ records) in collaboration with healthcare professionals. Incorporate more diverse health conditions, medications, and demographic factors. Consider federated learning approaches to train on data from multiple care facilities without centralising sensitive health data."),
+        ("Native Mobile Applications",
+         "Develop React Native mobile applications for iOS and Android to extend the system's reach to mobile-first users. Key use cases: family members checking on loved ones via smartphone, employees submitting reports from tablets while at the bedside, and push notifications on mobile devices."),
+        ("IoT Wearable Integration",
+         "Integrate with wearable health monitoring devices (smartwatches, medical-grade vital sign monitors) to enable continuous, automated health data collection rather than manual entry. Target metrics: real-time heart rate, SpO2 (blood oxygen), continuous blood pressure monitoring, sleep tracking, and movement/activity recognition."),
+        ("Predictive Analytics and Trend Analysis",
+         "Build a longitudinal health analytics module that applies time-series analysis to historical health metrics, generating predictive alerts for declining trends before they become acute. For example, detecting a gradual decrease in meal consumption over 5 days before it triggers a critical alert."),
+        ("Multi-Language Support (Arabic)",
+         "Implement full Arabic language support (RTL layout) throughout the frontend, making the system accessible to Arabic-speaking staff and family members in Egypt and the broader Arab world. The Gemini AI report generation would be extended to support Arabic-language clinical narratives."),
+        ("Cloud Deployment (Azure / AWS)",
+         "Migrate the system to a cloud platform (Azure App Service, Azure SQL, Azure SignalR Service, Azure Container Registry) for production deployment. Implement container orchestration (Docker Compose or Kubernetes) for the multi-service architecture. Set up CI/CD pipelines (GitHub Actions) for automated testing and deployment."),
+        ("Telemedicine Integration",
+         "Integrate a video consultation feature enabling family members and remote physicians to conduct virtual visits and consultations through the platform, reducing the need for physical visits while maintaining family connection."),
+        ("Medication Management Module",
+         "Develop a dedicated medication management module with medication schedules, automated reminder notifications, drug interaction checking via OpenFDA API, and integration with pharmacy dispensing systems."),
+        ("Occupational Therapy Tracking",
+         "Add structured occupational therapy and physiotherapy session tracking, allowing therapists to log progress, set goals, and monitor improvement over time within the resident's longitudinal health record."),
+        ("Family Communication Portal",
+         "Extend the family portal with a secure messaging system enabling direct communication between family members and care staff, replacing informal phone calls with a documented, auditable communication channel."),
+    ]
+
+    for i, (title, desc) in enumerate(future_items, 1):
+        add_heading(doc, f"8.{i}  {title}", 3)
+        add_paragraph(doc, desc, size=11)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BIBLIOGRAPHY
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Bibliography", 1)
+
+    references = [
+        "[1] Microsoft. (2024). ASP.NET Core 8 Documentation. Microsoft Developer Network (MSDN). https://docs.microsoft.com/en-us/aspnet/core",
+        "[2] Microsoft. (2024). Entity Framework Core Documentation. https://docs.microsoft.com/en-us/ef/core/",
+        "[3] Microsoft. (2024). ASP.NET Core Identity Documentation. https://docs.microsoft.com/en-us/aspnet/core/security/authentication/identity",
+        "[4] Microsoft. (2024). SignalR for ASP.NET Core. https://docs.microsoft.com/en-us/aspnet/core/signalr/introduction",
+        "[5] Fowler, M. (2002). Patterns of Enterprise Application Architecture. Addison-Wesley Professional.",
+        "[6] Martin, R. C. (2017). Clean Architecture: A Craftsman's Guide to Software Structure and Design. Prentice Hall.",
+        "[7] Facebook Inc. (2024). React.js Documentation. https://react.dev/",
+        "[8] Vitejs. (2024). Vite Documentation. https://vitejs.dev/",
+        "[9] Tiangolo, S. (2024). FastAPI Documentation. https://fastapi.tiangolo.com/",
+        "[10] Pedregosa, F., et al. (2011). Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research, 12, 2825-2830.",
+        "[11] Breiman, L. (2001). Random Forests. Machine Learning, 45(1), 5-32.",
+        "[12] Google. (2024). Gemini API Documentation. https://ai.google.dev/docs",
+        "[13] Nygard, M. T. (2018). Release It!: Design and Deploy Production-Ready Software (2nd ed.). Pragmatic Bookshelf.",
+        "[14] World Health Organization. (2022). Ageing and health. WHO Fact Sheet. https://www.who.int/news-room/fact-sheets/detail/ageing-and-health",
+        "[15] RFC 7519 (2015). JSON Web Token (JWT). Internet Engineering Task Force (IETF). https://tools.ietf.org/html/rfc7519",
+        "[16] HeroUI. (2024). HeroUI React Component Library. https://www.heroui.com/",
+        "[17] Recharts. (2024). Recharts - Redefined chart library built with React. https://recharts.org/",
+        "[18] TanStack. (2024). TanStack Query (React Query) Documentation. https://tanstack.com/query/latest",
+        "[19] AHA/ACC. (2017). High Blood Pressure Clinical Practice Guideline. Journal of the American College of Cardiology.",
+        "[20] American Diabetes Association. (2024). Standards of Medical Care in Diabetes. Diabetes Care, 47(Supplement 1).",
+    ]
+
+    for ref in references:
+        add_paragraph(doc, ref, size=10, space_after=4)
+
+    add_page_break(doc)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # APPENDICES
+    # ══════════════════════════════════════════════════════════════════════════
+    add_heading(doc, "Appendix A: Database Schema", 1)
+    add_paragraph(doc, "The following SQL DDL represents the database schema generated by Entity Framework Core migrations for SmartElderlyCare:", size=11)
+
+    schema_sql = """-- USERS TABLE (Extends ASP.NET Core Identity)
+CREATE TABLE [Users] (
+    [Id]           INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [FirstName]    NVARCHAR(100) NOT NULL,
+    [LastName]     NVARCHAR(100) NOT NULL,
+    [UserType]     INT NOT NULL,           -- 1=Admin, 2=TeamLeader, 3=Employee, 4=FamilyMember
+    [IsActive]     BIT NOT NULL DEFAULT 1,
+    [CreatedAt]    DATETIME2 NOT NULL,
+    [UpdatedAt]    DATETIME2 NULL,
+    [CreatedBy]    NVARCHAR(MAX) NOT NULL DEFAULT '',
+    [UpdatedBy]    NVARCHAR(MAX) NULL,
+    [IsDeleted]    BIT NOT NULL DEFAULT 0,
+    [DeletedAt]    DATETIME2 NULL,
+    [LastLoginAt]  DATETIME2 NULL,
+    -- Identity columns (Email, PasswordHash, PhoneNumber, etc.)
+);
+
+-- ELDERLIES TABLE
+CREATE TABLE [Elderlies] (
+    [Id]                   INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [FirstName]            NVARCHAR(100) NOT NULL,
+    [LastName]             NVARCHAR(100) NOT NULL,
+    [DateOfBirth]          DATETIME2 NOT NULL,
+    [RoomNumber]           NVARCHAR(MAX) NULL,
+    [EmergencyContact]     NVARCHAR(MAX) NULL,
+    [MedicalConditions]    NVARCHAR(MAX) NULL,
+    [Allergies]            NVARCHAR(MAX) NULL,
+    [DietaryRestrictions]  NVARCHAR(MAX) NULL,
+    [ProfileImageUrl]      NVARCHAR(MAX) NULL,
+    [ConnectionCode]       NVARCHAR(MAX) NOT NULL,    -- 6-char unique code
+    [IsActive]             BIT NOT NULL DEFAULT 1,
+    [IsDeleted]            BIT NOT NULL DEFAULT 0,
+    [DeletedAt]            DATETIME2 NULL,
+    [CreatedAt]            DATETIME2 NOT NULL,
+    [UpdatedAt]            DATETIME2 NULL,
+    [CreatedBy]            NVARCHAR(MAX) NOT NULL DEFAULT '',
+    [UpdatedBy]            NVARCHAR(MAX) NULL,
+);
+
+-- DAILY_REPORTS TABLE
+CREATE TABLE [DailyReports] (
+    [Id]                  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [EmployeeId]          INT NOT NULL REFERENCES [Users]([Id]) ON DELETE RESTRICT,
+    [ElderlyId]           INT NOT NULL REFERENCES [Elderlies]([Id]) ON DELETE RESTRICT,
+    [ReportDate]          DATETIME2 NOT NULL,
+    [SubmissionDate]      DATETIME2 NOT NULL,
+    [ApprovalStatus]      INT NOT NULL DEFAULT 1,   -- 1=Pending, 2=Approved, 3=Rejected
+    [ApprovedById]        INT NULL REFERENCES [Users]([Id]) ON DELETE RESTRICT,
+    [ApprovedDate]        DATETIME2 NULL,
+    [RejectionReason]     NVARCHAR(MAX) NULL,
+    [AiGeneratedReport]   NVARCHAR(MAX) NOT NULL DEFAULT '',
+    [StructuredData]      NVARCHAR(MAX) NOT NULL DEFAULT '',
+    [IsDeleted]           BIT NOT NULL DEFAULT 0,
+    [DeletedAt]           DATETIME2 NULL,
+    [CreatedAt]           DATETIME2 NOT NULL,
+    [UpdatedAt]           DATETIME2 NULL,
+    [CreatedBy]           NVARCHAR(MAX) NOT NULL DEFAULT '',
+    [UpdatedBy]           NVARCHAR(MAX) NULL,
+);
+
+-- HEALTH_METRICS TABLE
+CREATE TABLE [HealthMetrics] (
+    [Id]            INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [DailyReportId] INT NOT NULL REFERENCES [DailyReports]([Id]) ON DELETE CASCADE,
+    [MetricType]    INT NOT NULL,  -- 1=Meal, 2=Medication, 3=Activity, 4=Symptom, 5=Vital, 6=Mood
+    [MetricName]    NVARCHAR(MAX) NOT NULL,
+    [MetricValue]   NVARCHAR(MAX) NOT NULL,
+    [Unit]          NVARCHAR(MAX) NULL,
+    [Notes]         NVARCHAR(MAX) NULL,
+    [RecordedTime]  TIME NOT NULL,
+    [CreatedAt]     DATETIME2 NOT NULL,
+    [UpdatedAt]     DATETIME2 NULL,
+);
+
+-- NOTIFICATIONS TABLE
+CREATE TABLE [Notifications] (
+    [Id]                  INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [UserId]              INT NOT NULL REFERENCES [Users]([Id]) ON DELETE CASCADE,
+    [Title]               NVARCHAR(MAX) NOT NULL,
+    [Message]             NVARCHAR(MAX) NOT NULL,
+    [NotificationType]    INT NOT NULL,  -- 1=HealthAlert, 2=Approved, 3=Rejected, 4=Visit, 5=Schedule, 6=General
+    [IsRead]              BIT NOT NULL DEFAULT 0,
+    [RelatedEntityId]     INT NULL,
+    [RelatedEntityType]   NVARCHAR(MAX) NULL,
+    [IsDeleted]           BIT NOT NULL DEFAULT 0,
+    [CreatedAt]           DATETIME2 NOT NULL,
+    [UpdatedAt]           DATETIME2 NULL,
+);
+
+-- AUDIT_LOGS TABLE (permanent, never deleted)
+CREATE TABLE [AuditLogs] (
+    [Id]          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    [UserId]      INT NULL REFERENCES [Users]([Id]) ON DELETE SET NULL,
+    [Action]      NVARCHAR(100) NOT NULL,
+    [EntityName]  NVARCHAR(100) NOT NULL,
+    [EntityId]    INT NULL,
+    [OldValues]   NVARCHAR(MAX) NULL,
+    [NewValues]   NVARCHAR(MAX) NULL,
+    [IpAddress]   NVARCHAR(MAX) NULL,
+    [Timestamp]   DATETIME2 NOT NULL,
+    [CreatedAt]   DATETIME2 NOT NULL,
+);"""
+
+    p = doc.add_paragraph()
+    run = p.add_run(schema_sql)
+    run.font.name = 'Courier New'
+    run.font.size = Pt(7.5)
+
+    add_page_break(doc)
+
+    add_heading(doc, "Appendix B: API Documentation (Sample Requests & Responses)", 1)
+    add_paragraph(doc, "The following are sample JSON request and response bodies for key API endpoints:", size=11)
+
+    add_paragraph(doc, "POST /api/auth/login – Sample Request:", size=11, bold=True)
+    add_paragraph(doc, '{\n  "email": "employee@silvernest.com",\n  "password": "Employee@123"\n}', size=9)
+
+    add_paragraph(doc, "POST /api/auth/login – Sample Response:", size=11, bold=True)
+    add_paragraph(doc, '{\n  "succeeded": true,\n  "message": "Login successful",\n  "data": {\n    "id": 5,\n    "firstName": "Ahmed",\n    "lastName": "Hassan",\n    "email": "employee@silvernest.com",\n    "userType": "Employee",\n    "roles": ["Employee"],\n    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",\n    "tokenExpiresAt": "2026-06-08T22:30:00Z",\n    "isActive": true\n  }\n}', size=9)
+
+    add_paragraph(doc, "POST /api/ml/predict-health-risk – Sample Request:", size=11, bold=True)
+    add_paragraph(doc, '{\n  "elderly_id": 3,\n  "age": 78,\n  "heart_rate": 88,\n  "systolic_bp": 145,\n  "diastolic_bp": 92,\n  "blood_sugar": 180,\n  "body_temperature": 38.2,\n  "mobility_score": 6,\n  "sleep_hours": 5.5,\n  "missed_medications": 1,\n  "meals_eaten_percent": 70,\n  "mood_score": 5\n}', size=9)
+
+    add_paragraph(doc, "POST /api/ml/predict-health-risk – Sample Response:", size=11, bold=True)
+    add_paragraph(doc, '{\n  "elderly_id": 3,\n  "risk_level": "High",\n  "confidence_score": 0.99,\n  "recommendation": "### 🚨 URGENT: AI Clinical Health Alert: High Risk Detected\\n..."\n}', size=9)
+
+    add_page_break(doc)
+
+    add_heading(doc, "Appendix C: Source Code Samples", 1)
+    add_paragraph(doc, "The following are key source code excerpts from the SmartElderlyCare system:", size=11)
+
+    add_heading(doc, "C.1  JWT Token Generation (AuthenticationService.cs)", 3)
+    add_paragraph(doc, """private async Task<string> GenerateJwtTokenAsync(User user)
+{
+    var tokenHandler = new JwtSecurityTokenHandler();
+    var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
+    var roles = await _userManager.GetRolesAsync(user);
+    var claims = new List<Claim>
+    {
+        new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new(JwtRegisteredClaimNames.Email, user.Email!),
+        new("userId", user.Id.ToString()),
+        new("userType", user.UserType.ToString()),
+        new("fullName", $"{user.FirstName} {user.LastName}")
+    };
+    claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+    var tokenDescriptor = new SecurityTokenDescriptor
+    {
+        Subject = new ClaimsIdentity(claims),
+        Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationInMinutes),
+        Issuer = _jwtSettings.Issuer,
+        Audience = _jwtSettings.Audience,
+        SigningCredentials = new SigningCredentials(
+            new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+    };
+    var token = tokenHandler.CreateToken(tokenDescriptor);
+    return tokenHandler.WriteToken(token);
+}""", size=9)
+
+    add_heading(doc, "C.2  AI Health Risk Prediction (main.py – Python FastAPI)", 3)
+    add_paragraph(doc, """@app.post("/api/ml/predict-health-risk", response_model=PredictionOutput)
+def predict_health_risk(data: HealthDataInput, api_key: str = Depends(get_api_key)):
+    # Temperature auto-conversion (Celsius → Fahrenheit)
+    temp_f = (data.body_temperature * 9/5) + 32 if data.body_temperature < 45.0 else data.body_temperature
+    
+    # ML Prediction
+    features = pd.DataFrame([{...}], columns=model_features)
+    is_high_risk = bool(health_model.predict(features)[0] == 1)
+    confidence = round(health_model.predict_proba(features)[0][1 if is_high_risk else 0], 2)
+    
+    # Clinical Rule Engine Overrides
+    if data.systolic_bp >= 160 or data.diastolic_bp >= 100:
+        is_high_risk = True; confidence = 0.99  # Severe Hypertension
+    if data.heart_rate >= 115:
+        is_high_risk = True; confidence = 0.99  # Tachycardia
+    if temp_f >= 101.5:
+        is_high_risk = True; confidence = 0.99  # High Fever
+    if data.blood_sugar >= 200:
+        is_high_risk = True; confidence = 0.99  # Hyperglycemia
+    if data.missed_medications >= 2:
+        is_high_risk = True; confidence = 0.99  # Non-adherence
+    
+    # Generate Markdown Clinical Report
+    recommendation = compile_clinical_report(is_high_risk, anomalies, reasons, actions)
+    log_prediction_to_csv(data.elderly_id, data, "High" if is_high_risk else "Low", confidence)
+    
+    return PredictionOutput(elderly_id=data.elderly_id, 
+                           risk_level="High" if is_high_risk else "Low",
+                           confidence_score=confidence, recommendation=recommendation)""", size=9)
+
+    add_page_break(doc)
+
+    add_heading(doc, "Appendix D: User Manual", 1)
+
+    add_heading(doc, "D.1  Getting Started", 3)
+    add_paragraph(doc, "Access the SmartElderlyCare system by navigating to the application URL in a modern web browser (Chrome, Firefox, Edge, or Safari). You will be redirected to the Sign In page.", size=11)
+
+    add_heading(doc, "D.2  User Roles and Default Credentials", 3)
+    creds = [
+        ("Administrator", "admin@silvernest.com", "[Set by system]", "Full system access"),
+        ("Team Leader", "teamleader@silvernest.com", "[Set by Admin]", "Reports, schedules, employees, visits"),
+        ("Employee", "employee@silvernest.com", "[Set by Admin]", "Reports, residents, schedule, attendance"),
+        ("Family Member", "family@silvernest.com", "[Self-registered]", "Approved reports, visits, notifications"),
+    ]
+    add_styled_table(doc, ["Role", "Email", "Password", "Access Level"], creds)
+
+    add_heading(doc, "D.3  Family Member Self-Registration", 3)
+    family_steps = [
+        "Navigate to /signup from the login page.",
+        "Enter your full name, email address, and a secure password.",
+        "Enter the unique Connection Code provided to you by the care facility (6-character alphanumeric code linked to your elderly relative).",
+        "Select your relationship to the elderly resident.",
+        "Click Register. You will be automatically logged in and taken to the Family Dashboard.",
+    ]
+    for i, step in enumerate(family_steps, 1):
+        add_bullet(doc, step, bold_prefix=f"Step {i}: ")
+
+    add_heading(doc, "D.4  Employee Daily Report Submission", 3)
+    report_steps = [
+        "Log in as an Employee.",
+        "Navigate to Daily Reports → Create Report.",
+        "Select the elderly resident from your assigned residents list.",
+        "Choose the report date.",
+        "Add health metrics by clicking '+ Add Metric' for each observation: select the metric type (Meal, Medication, Vital, Activity, Mood, Symptom), enter the metric name, value, unit, notes, and time.",
+        "Click Submit Report. The system will automatically generate an AI narrative report using Gemini and assess health risk.",
+        "Your report will be sent to the Team Leader for review.",
+    ]
+    for i, step in enumerate(report_steps, 1):
+        add_bullet(doc, step, bold_prefix=f"Step {i}: ")
+
+    add_page_break(doc)
+
+    add_heading(doc, "Appendix E: Installation Guide", 1)
+
+    add_heading(doc, "E.1  Prerequisites", 3)
+    prereqs = [
+        ".NET 8 SDK (https://dotnet.microsoft.com/download)",
+        "Microsoft SQL Server 2019+ (or SQL Server Express)",
+        "Node.js 18+ with npm (https://nodejs.org/)",
+        "Python 3.10+ with pip (https://www.python.org/)",
+        "Git (https://git-scm.com/)",
+    ]
+    for p in prereqs:
+        add_bullet(doc, p)
+
+    add_heading(doc, "E.2  Backend Setup (.NET API)", 3)
+    backend_steps = [
+        'Clone the repository: git clone https://github.com/AntonFarid/ElderCare-Management-System.git',
+        'Navigate to the API project: cd src/Backend/SmartElderlyCare',
+        'Update the connection string in SmartElderlyCare.API/appsettings.json under "DefaultConnection".',
+        'Add your Google Gemini API key under "GeminiSettings": { "ApiKey": "YOUR_KEY_HERE" }',
+        'Apply database migrations: dotnet ef database update --project SmartElderlyCare.Infrastructure --startup-project SmartElderlyCare.API',
+        'Run the API: dotnet run --project SmartElderlyCare.API',
+        'The API will start on https://localhost:7xxx. Access Swagger at /swagger.',
+    ]
+    for i, step in enumerate(backend_steps, 1):
+        add_bullet(doc, step, bold_prefix=f"Step {i}: ")
+
+    add_heading(doc, "E.3  AI Microservice Setup (Python FastAPI)", 3)
+    ai_steps = [
+        'Navigate to the AI service: cd src/AI-Service',
+        'Install dependencies: pip install -r requirements.txt',
+        'Train the models (first-time setup): python train_model.py',
+        'Start the AI service: uvicorn main:app --reload --host 0.0.0.0 --port 8000',
+        'Or use the provided batch file: start_server.bat',
+        'The AI service will be available at http://localhost:8000. Docs at /docs.',
+    ]
+    for i, step in enumerate(ai_steps, 1):
+        add_bullet(doc, step, bold_prefix=f"Step {i}: ")
+
+    add_heading(doc, "E.4  Frontend Setup (React.js)", 3)
+    frontend_steps = [
+        'Navigate to the frontend: cd src/Frontend',
+        'Install dependencies: npm install',
+        'Start the development server: npm run dev',
+        'The application will be available at http://localhost:5173.',
+    ]
+    for i, step in enumerate(frontend_steps, 1):
+        add_bullet(doc, step, bold_prefix=f"Step {i}: ")
+
+    add_page_break(doc)
+
+    add_heading(doc, "Appendix F: Test Cases (Detailed)", 1)
+    add_paragraph(doc, "The following table provides detailed test cases for the complete test suite:", size=11)
+
+    all_test_cases = [
+        ("TC-001", "Login with valid credentials", "POST /api/auth/login {email, password}", "200 OK + JWT token", "PASS"),
+        ("TC-002", "Login with invalid password", "POST /api/auth/login {email, wrongPassword}", "401 Unauthorized", "PASS"),
+        ("TC-003", "Access protected endpoint without token", "GET /api/admin/users (no Authorization header)", "401 Unauthorized", "PASS"),
+        ("TC-004", "Access admin endpoint as employee", "GET /api/admin/users with Employee JWT", "403 Forbidden", "PASS"),
+        ("TC-005", "Create elderly resident", "POST /api/admin/elderly {firstName, lastName, dob, ...}", "201 Created + ConnectionCode generated", "PASS"),
+        ("TC-006", "Family registration with valid code", "POST /api/auth/register/family {email, code}", "201 Created + linked to elderly", "PASS"),
+        ("TC-007", "Family registration with invalid code", "POST /api/auth/register/family {email, invalidCode}", "404 Not Found", "PASS"),
+        ("TC-008", "Submit daily report", "POST /api/employee/reports {elderlyId, metrics}", "201 Created + AI report generated", "PASS"),
+        ("TC-009", "Submit report for unassigned elderly", "POST /api/employee/reports {unassignedElderlyId}", "403 Forbidden", "PASS"),
+        ("TC-010", "Approve report as team leader", "POST /api/teamleader/reports/approve {reportId}", "200 OK + notification sent", "PASS"),
+        ("TC-011", "Family views approved report", "GET /api/family/elderly/{id}/reports", "200 OK + approved reports only", "PASS"),
+        ("TC-012", "AI health risk prediction – normal", "POST /api/ml/predict-health-risk {normal vitals}", "risk_level=Low", "PASS"),
+        ("TC-013", "AI health risk prediction – hypertension", "POST /api/ml/predict-health-risk {systolic=165}", "risk_level=High, confidence=0.99", "PASS"),
+        ("TC-014", "Diet recommendation – diabetic", "POST /api/ml/recommend-diet {conditions='diabetes'}", "Low-glycemic meals recommended", "PASS"),
+        ("TC-015", "Diet recommendation – seafood allergy", "POST /api/ml/recommend-diet {allergies='seafood'}", "No fish/cod in response", "PASS"),
+        ("TC-016", "Employee clock in", "POST /api/employee/attendance/clock-in", "200 OK + login time recorded", "PASS"),
+        ("TC-017", "Employee clock in twice", "POST /api/employee/attendance/clock-in (already clocked in)", "400 BadRequest", "PASS"),
+        ("TC-018", "Create work schedule", "POST /api/teamleader/schedules {employeeId, shiftDate, type}", "201 Created + schedule saved", "PASS"),
+        ("TC-019", "Family schedules visit", "POST /api/family/visits {elderlyId, date, time, duration}", "201 Created + TL notified", "PASS"),
+        ("TC-020", "Team leader approves visit", "POST /api/teamleader/visits/approve {visitId}", "200 OK + family notified", "PASS"),
+        ("TC-021", "Soft delete user", "DELETE /api/admin/users/{id}", "200 OK + IsDeleted=true, data preserved", "PASS"),
+        ("TC-022", "View audit logs", "GET /api/admin/audit-logs", "200 OK + complete action history", "PASS"),
+        ("TC-023", "Get system statistics", "GET /api/admin/statistics", "200 OK + aggregated KPIs", "PASS"),
+        ("TC-024", "Forgot password", "POST /api/auth/forgot-password {email}", "200 OK + reset email sent", "PASS"),
+        ("TC-025", "Fall detection – fallen posture", "POST /api/ml/detect-fall {x_min=100, y_min=100, x_max=300, y_max=250}", "fall_detected=True", "PASS"),
+    ]
+    add_styled_table(doc, ["Test ID", "Test Case", "Input", "Expected Result", "Status"], all_test_cases)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # FINAL SAVE
+    # ══════════════════════════════════════════════════════════════════════════
+    output_path = r"d:\Graduaion Project\ElderCare-Management-System\SmartElderlyCare_Graduation_Report.docx"
+    doc.save(output_path)
+    print(f"\n{'='*70}")
+    print(f"DONE: SmartElderlyCare Graduation Project Report Generated Successfully!")
+    print(f"Saved to: {output_path}")
+    print(f"{'='*70}\n")
+    return output_path
+
+
+if __name__ == "__main__":
+    build_report()

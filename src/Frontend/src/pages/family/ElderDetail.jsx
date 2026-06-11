@@ -112,7 +112,7 @@ export default function ElderDetail() {
 
             const headerHtml = `
                 <div style="border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
-                    <h1 style="color: #2563eb; margin: 0; font-size: 28px;">SilverNest Care Management</h1>
+                    <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Sanad Care Management</h1>
                     <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Clinical Care Summary</p>
                 </div>
                 <div style="margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">

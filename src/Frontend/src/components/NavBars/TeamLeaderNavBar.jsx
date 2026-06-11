@@ -60,7 +60,7 @@ export default function TeamLeaderNavbar() {
                             <HeartHandshake className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-lg font-bold text-gray-900">SilverNest</span>
+                            <span className="text-lg font-bold text-gray-900">Sanad</span>
                             <span className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Team Leader Portal</span>
                         </div>
                     </Link>
