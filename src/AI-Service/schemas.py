@@ -17,6 +17,10 @@ class HealthDataInput(BaseModel):
     missed_medications: Optional[int] = Field(0, ge=0, le=10, description="Number of missed doses")
     meals_eaten_percent: Optional[int] = Field(100, ge=0, le=100, description="Percentage of meals eaten")
     mood_score: Optional[int] = Field(5, ge=1, le=10, description="1 (poor) to 10 (excellent)")
+    oxygen_saturation: Optional[int] = Field(98, ge=20, le=100, description="Oxygen Saturation in %")
+    respiratory_rate: Optional[int] = Field(16, ge=0, le=100, description="Respiratory Rate in breaths/min")
+    water_intake_ml: Optional[int] = Field(1500, ge=0, le=10000, description="Daily water intake in ml")
+    pain_level: Optional[int] = Field(0, ge=0, le=10, description="Pain score 0 (no pain) to 10 (worst pain)")
     
 class PredictionOutput(BaseModel):
     elderly_id: int

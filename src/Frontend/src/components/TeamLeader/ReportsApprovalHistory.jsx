@@ -34,7 +34,7 @@ const statusColorMap = {
     Rejected: "danger",
 };
 
-export default function ReportsApprovalHistory({ elderlyId }) {
+export default function ReportsApprovalHistory({ allResidents = [], initialElderlyId }) {
     const navigate = useNavigate();
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +42,7 @@ export default function ReportsApprovalHistory({ elderlyId }) {
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
+    const [selectedElderlyId, setSelectedElderlyId] = useState(initialElderlyId || "");
 
     const fetchHistory = async () => {
         setIsLoading(true);
@@ -50,7 +51,7 @@ export default function ReportsApprovalHistory({ elderlyId }) {
             if (fromDate) params.fromDate = fromDate;
             if (toDate) params.toDate = toDate;
             if (statusFilter) params.status = statusFilter;
-            if (elderlyId) params.elderlyId = elderlyId;
+            if (selectedElderlyId) params.elderlyId = selectedElderlyId;
 
             // Notice we use direct axios here because teamLeaderApiServices currently doesn't map params for this particular API
             const response = await axios.get(import.meta.env.VITE_BASE_URL + "TeamLeader/reports/approval-history", {
@@ -75,8 +76,12 @@ export default function ReportsApprovalHistory({ elderlyId }) {
     };
 
     useEffect(() => {
+        setSelectedElderlyId(initialElderlyId || "");
+    }, [initialElderlyId]);
+
+    useEffect(() => {
         fetchHistory();
-    }, []);
+    }, [selectedElderlyId]);
 
     const handleApplyFilters = () => {
         fetchHistory();
@@ -86,7 +91,7 @@ export default function ReportsApprovalHistory({ elderlyId }) {
         setFromDate("");
         setToDate("");
         setStatusFilter("");
-        setTimeout(() => fetchHistory(), 0);
+        setSelectedElderlyId("");
     };
 
     const formatDate = (dateStr) => {
@@ -133,6 +138,21 @@ export default function ReportsApprovalHistory({ elderlyId }) {
                             size="sm"
                             className="max-w-[200px]"
                         />
+                        <Select
+                            label="Care Resident"
+                            labelPlacement="outside"
+                            placeholder="All Residents"
+                            size="sm"
+                            selectedKeys={selectedElderlyId ? [selectedElderlyId] : []}
+                            onChange={(e) => setSelectedElderlyId(e.target.value)}
+                            className="max-w-[200px]"
+                        >
+                            {allResidents.map((res) => (
+                                <SelectItem key={String(res.id)} value={String(res.id)} textValue={`${res.firstName} ${res.lastName}`}>
+                                    {res.firstName} {res.lastName}
+                                </SelectItem>
+                            ))}
+                        </Select>
                         <Select
                             label="Status"
                             labelPlacement="outside"

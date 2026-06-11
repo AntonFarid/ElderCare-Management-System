@@ -1,13 +1,17 @@
 {
-    "age": 0.03166867605664976,
-    "heart_rate": 0.09854394618458309,
-    "systolic_bp": 0.25775538114333935,
-    "diastolic_bp": 0.08904208178849922,
-    "blood_sugar": 0.16034294623119758,
-    "body_temperature": 0.09113885537325947,
-    "mobility_score": 0.029823786313624097,
-    "sleep_hours": 0.06799358071324853,
-    "missed_medications": 0.13584362430451793,
-    "meals_eaten_percent": 0.024376101842389416,
-    "mood_score": 0.013471020048691497
+    "age": 0.026219434347087796,
+    "heart_rate": 0.06309922147996835,
+    "systolic_bp": 0.203239475374579,
+    "diastolic_bp": 0.09694675101413618,
+    "blood_sugar": 0.09022556280987808,
+    "body_temperature": 0.027012539539224185,
+    "mobility_score": 0.025687884410334972,
+    "sleep_hours": 0.05218565335502459,
+    "missed_medications": 0.17293670530257643,
+    "meals_eaten_percent": 0.022277975718187702,
+    "mood_score": 0.015936262811389018,
+    "oxygen_saturation": 0.047906892321615144,
+    "respiratory_rate": 0.05698065027614843,
+    "water_intake_ml": 0.059751379897464464,
+    "pain_level": 0.03959361134238571
 }

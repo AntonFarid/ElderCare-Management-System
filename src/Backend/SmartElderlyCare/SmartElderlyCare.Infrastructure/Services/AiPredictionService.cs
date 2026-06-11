@@ -69,4 +69,63 @@ public class AiPredictionService : IAiPredictionService
             return null;
         }
     }
+
+    public async Task<List<RecipeDto>> GetRecipesAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("api/ml/recipes");
+            if (response.IsSuccessStatusCode)
+            {
+                var recipes = await response.Content.ReadFromJsonAsync<List<RecipeDto>>();
+                return recipes ?? new();
+            }
+            _logger.LogWarning($"Get recipes failed: {response.StatusCode}");
+            return new();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting recipes");
+            return new();
+        }
+    }
+
+    public async Task<RecipeDto?> AddRecipeAsync(RecipeDto recipe)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/ml/recipes", recipe);
+            if (response.IsSuccessStatusCode)
+            {
+                var createdRecipe = await response.Content.ReadFromJsonAsync<RecipeDto>();
+                return createdRecipe;
+            }
+            _logger.LogWarning($"Add recipe failed: {response.StatusCode}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding recipe");
+            return null;
+        }
+    }
+
+    public async Task<bool> RetrainModelAsync()
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync("api/ml/retrain", null);
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+            _logger.LogWarning($"Retrain model failed: {response.StatusCode}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retraining model");
+            return false;
+        }
+    }
 }

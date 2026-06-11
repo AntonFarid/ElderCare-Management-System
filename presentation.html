@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanad - Presentation Deck</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.3);
+            --gold: #fbbf24;
+            --gold-glow: rgba(251, 191, 36, 0.3);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --emerald: #10b981;
+            --rose: #f43f5e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Slide Container */
+        .presentation {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease;
+            transform: translateX(100px) scale(0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 4rem;
+        }
+
+        .slide.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(0) scale(1);
+        }
+
+        .slide.previous {
+            transform: translateX(-100px) scale(0.95);
+        }
+
+        /* Top Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary), var(--gold));
+            width: 0%;
+            z-index: 100;
+            transition: width 0.3s ease;
+        }
+
+        /* Slide Number Indicator */
+        .slide-number {
+            position: fixed;
+            bottom: 2rem;
+            left: 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            z-index: 90;
+        }
+
+        /* Branding Logo */
+        .brand-logo {
+            position: fixed;
+            top: 2rem;
+            left: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 90;
+        }
+
+        .brand-logo svg {
+            width: 28px;
+            height: 28px;
+            color: var(--primary);
+        }
+
+        .brand-logo span {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 40%, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+            z-index: 99;
+        }
+
+        .btn-control {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .btn-control:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+
+        /* Grid Layout Components */
+        .slide-content {
+            max-width: 1200px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .slide-title {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .slide-title span {
+            color: var(--gold);
+            -webkit-text-fill-color: var(--gold);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        /* Cards and Elements */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .glass-card:hover::before {
+            opacity: 1;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .card-icon {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .gold-icon {
+            background: rgba(251, 191, 36, 0.1) !important;
+            color: var(--gold) !important;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .card-text {
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        /* Specific Slide Styling */
+        /* Slide 1: Cover Page */
+        .cover-slide h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -2px;
+            text-align: center;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff 30%, #9ca3af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cover-slide h1 span {
+            background: linear-gradient(135deg, var(--primary), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cover-slide p.subtitle {
+            font-size: 1.8rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 3rem;
+            font-weight: 300;
+        }
+
+        .cover-details {
+            display: flex;
+            gap: 4rem;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .cover-detail-item p.label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .cover-detail-item p.value {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        /* Interactive Simulator (Slide 8) */
+        .simulator-box {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            background: rgba(0,0,0,0.2);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--card-border);
+        }
+
+        .sim-node {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 1.2rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            opacity: 0.5;
+            transition: all 0.5s ease;
+        }
+
+        .sim-node.active {
+            opacity: 1;
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
+        }
+
+        .sim-node.alert-node.active {
+            border-color: var(--rose);
+            background: rgba(244, 63, 94, 0.05);
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.1);
+        }
+
+        .sim-btn {
+            background: var(--gold);
+            color: #000;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .sim-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--gold-glow);
+        }
+
+        /* Code Block Styling */
+        pre {
+            background: rgba(0,0,0,0.4);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid var(--card-border);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            color: #38bdf8;
+            line-height: 1.5;
+        }
+
+        /* Architecture Diagram Styling */
+        .arch-diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .arch-node {
+            width: 14rem;
+            text-align: center;
+            z-index: 2;
+        }
+
+        .arch-arrow {
+            flex-grow: 1;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--gold));
+            position: relative;
+            margin: 0 1rem;
+        }
+
+        .arch-arrow::after {
+            content: '➔';
+            position: absolute;
+            right: 0;
+            top: -10px;
+            color: var(--gold);
+            font-size: 14px;
+        }
+
+        .badge {
+            background: rgba(251, 191, 36, 0.15);
+            color: var(--gold);
+            padding: 0.3rem 0.8rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 0.5rem;
+        }
+
+        .list-bullets {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .list-bullets li {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 1.1rem;
+            color: var(--text-muted);
+        }
+
+        .list-bullets li svg {
+            color: var(--emerald);
+            flex-shrink: 0;
+        }
+
+        /* Table */
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        .custom-table th {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 2px solid var(--card-border);
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .custom-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-muted);
+        }
+
+        .status-check {
+            color: var(--emerald);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="brand-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        <span>Sanad</span>
+    </div>
+
+    <div class="slide-number" id="slideNumber">1 / 17</div>
+
+    <div class="presentation" id="presentationContainer">
+
+        <!-- Slide 1: Cover -->
+        <div class="slide cover-slide active" id="slide-1">
+            <h1>Welcome to <span>Sanad</span></h1>
+            <p class="subtitle">SmartElderlyCare: An AI-Powered Distributed Care System</p>
+            <div class="cover-details">
+                <div class="cover-detail-item">
+                    <p class="label">Project Type</p>
+                    <p class="value">Graduation Project Defense</p>
+                </div>
+                <div class="cover-detail-item">
+                    <p class="label">Core Stack</p>
+                    <p class="value">ASP.NET 8 | React | FastAPI | Gemini</p>
+                </div>
+                <div class="cover-detail-item">
+                    <p class="label">Session</p>
+                    <p class="value">June 2026</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: Problem Statement -->
+        <div class="slide" id="slide-2">
+            <div class="slide-content">
+                <h2 class="slide-title">The Care Gap: <span>Hajj Ahmed's Story</span></h2>
+                <div class="grid-2">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="alert-triangle"></i></div>
+                        <h3 class="card-title">Traditional Care Limitations</h3>
+                        <p class="card-text">
+                            Hajj Ahmed is 80 years old. His vitals change hourly. Standard nursing systems rely on manual end-of-day logging, leaving critical alerts delayed by hours, with no real-time safety nets.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="trending-up"></i></div>
+                        <h3 class="card-title">The Opportunity</h3>
+                        <p class="card-text">
+                            By combining distributed system architecture with predictive and generative AI, we can monitor clinical trends dynamically, generate human-readable reports, and alert caregivers instantly.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: The Solution -->
+        <div class="slide" id="slide-3">
+            <div class="slide-content">
+                <h2 class="slide-title">The Solution: <span>Sanad</span></h2>
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="users"></i></div>
+                        <h4 class="card-title">Unified Multi-Role Portal</h4>
+                        <p class="card-text">Dedicated user interfaces for Administrators, Team Leaders, Caregivers (Employees), and Family Members.</p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="brain"></i></div>
+                        <h4 class="card-title">AI-Powered Decisions</h4>
+                        <p class="card-text">Random Forest model predicting health risks and diet plans, combined with Google Gemini generating narratives.</p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="zap"></i></div>
+                        <h4 class="card-title">SignalR Real-Time Alerts</h4>
+                        <p class="card-text">Instantly sends critical alarms and clinical summaries to supervisors' browsers without page refreshes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 4: System Architecture -->
+        <div class="slide" id="slide-4">
+            <div class="slide-content">
+                <h2 class="slide-title">Distributed <span>Three-Tier Architecture</span></h2>
+                <div class="glass-card">
+                    <div class="arch-diagram">
+                        <div class="arch-node">
+                            <span class="badge">React SPA (Vite)</span>
+                            <h4 class="card-title">Frontend Portal</h4>
+                            <p class="card-text">UI, Recharts Dashboards, SignalR Connection</p>
+                        </div>
+                        <div class="arch-arrow"></div>
+                        <div class="arch-node">
+                            <span class="badge" style="background:rgba(59,130,246,0.15); color:var(--primary);">ASP.NET 8 Core</span>
+                            <h4 class="card-title">Backend REST Web API</h4>
+                            <p class="card-text">Business Logic, Identity, EF SQL Database, Gemini Integration</p>
+                        </div>
+                        <div class="arch-arrow"></div>
+                        <div class="arch-node">
+                            <span class="badge">FastAPI (Python)</span>
+                            <h4 class="card-title">AI Microservice</h4>
+                            <p class="card-text">Random Forest Prediction, Fall Heuristic Engine</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: Frontend Architecture -->
+        <div class="slide" id="slide-5">
+            <div class="slide-content">
+                <h2 class="slide-title">Frontend Architecture: <span>React SPA & State Flow</span></h2>
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="layout"></i></div>
+                        <h4 class="card-title">UI & Styling Layer</h4>
+                        <p class="card-text">
+                            Built with <strong>React 19</strong> and <strong>Vite</strong> for fast development. Uses <strong>TailwindCSS 4</strong> and <strong>HeroUI</strong> for beautiful glassmorphic components, and <strong>Framer Motion</strong> for micro-animations.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="refresh-cw"></i></div>
+                        <h4 class="card-title">State & Data Cache</h4>
+                        <p class="card-text">
+                            API integration powered by <strong>Axios</strong>. Server state caching, background refetching, and synchronization managed by <strong>TanStack React Query v5</strong>. Role-based client access using JWT tokens.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="activity"></i></div>
+                        <h4 class="card-title">Analytics & Real-time</h4>
+                        <p class="card-text">
+                            Subscribes to server-sent events via <strong>SignalR Client</strong> for push alerts. Dynamic visualizations of historical health metrics using interactive <strong>Recharts</strong> graphs.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Backend Architecture -->
+        <div class="slide" id="slide-6">
+            <div class="slide-content">
+                <h2 class="slide-title">Backend Architecture: <span>ASP.NET 8 Core Engine</span></h2>
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="server"></i></div>
+                        <h4 class="card-title">Clean Onion Layers</h4>
+                        <p class="card-text">
+                            Enforces strict dependency inversion: API -> Infrastructure -> Application -> Domain. Database mapping is managed through <strong>Entity Framework Core</strong> with SQL Server.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="shield-check"></i></div>
+                        <h4 class="card-title">Security & Identity</h4>
+                        <p class="card-text">
+                            Secured via <strong>ASP.NET Core Identity</strong>, role claims-based <strong>JWT authentication</strong>, custom request rate limiting, and password hashing for protection.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="zap"></i></div>
+                        <h4 class="card-title">Hubs & Integrations</h4>
+                        <p class="card-text">
+                            Implements <strong>SignalR Hubs</strong> for real-time connection groups. Uses <code>HttpClientFactory</code> to coordinate API requests to Gemini AI and the FastAPI microservice.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 7: ML Architecture -->
+        <div class="slide" id="slide-7">
+            <div class="slide-content">
+                <h2 class="slide-title">ML Architecture: <span>Predictive & Generative Brain</span></h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 100%;">
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon" style="margin-bottom: 1rem;"><i data-lucide="cpu"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">FastAPI Microservice</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Python <strong>FastAPI</strong> web server for hosting predictive models. Strict endpoint schema validation and formatting powered by <strong>Pydantic v2</strong> models.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon gold-icon" style="margin-bottom: 1rem;"><i data-lucide="brain"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Multi-Model Vitals Predictor</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Trains and selects the highest-accuracy classifier (<strong>Random Forest</strong>, <strong>Gradient Boosting</strong>, <strong>Decision Trees</strong>, or <strong>Logistic Regression</strong>), backed by a simple <strong>Rule-Based Clinical Override</strong> safety net for critical vitals thresholds.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon" style="margin-bottom: 1rem;"><i data-lucide="utensils"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Dynamic Diet Recommendation</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Predicts daily breakfast, lunch, and dinner suggestions using <strong>Random Forest</strong> models. Automatically filters out ingredients triggering active user allergies, restrictions, or medical conditions.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon gold-icon" style="margin-bottom: 1rem;"><i data-lucide="sparkles"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Generative Reporting</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Constructs structured prompts sent to the <strong>Google Gemini API</strong> for automated, daily clinical summaries. Implements custom local fail-safe templates.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Frontend Features -->
+        <div class="slide" id="slide-8">
+            <div class="slide-content">
+                <h2 class="slide-title">Frontend Features: <span>Sleek, Responsive & Reactive</span></h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 100%;">
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon" style="margin-bottom: 1rem;"><i data-lucide="sparkles"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Modern Design System</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Utilizes <strong>HeroUI</strong> and <strong>TailwindCSS 4</strong> for a glassmorphic look. Fluid UI transitions and micro-animations are handled cleanly via <strong>Framer Motion</strong>.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon gold-icon" style="margin-bottom: 1rem;"><i data-lucide="users"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Multi-Role Workflows</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Caregivers log vitals in tabbed forms, Family members monitor trends and schedule visits, Admins configure assignments, and Team Leaders review AI recommendations.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon" style="margin-bottom: 1rem;"><i data-lucide="zap"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Performance Optimization</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Uses <strong>TanStack React Query v5</strong> for client-side API state caching and query syncing, avoiding redundant data fetching and ensuring instant page transitions.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: 1.8rem 2.2rem;">
+                        <div class="card-icon gold-icon" style="margin-bottom: 1rem;"><i data-lucide="bell"></i></div>
+                        <h4 class="card-title" style="font-size: 1.3rem; margin-bottom: 0.5rem;">Real-Time Data Streams</h4>
+                        <p class="card-text" style="font-size: 0.95rem;">
+                            Listening interface via <strong>SignalR Client</strong> pushes immediate, non-intrusive toast alerts to the supervisor's dashboard. Vitals trendlines are rendered using interactive <strong>Recharts</strong> graphs.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 9: Backend Features -->
+        <div class="slide" id="slide-9">
+            <div class="slide-content">
+                <h2 class="slide-title">Backend Features: <span>Robust, Secure & Scalable</span></h2>
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="shield-check"></i></div>
+                        <h4 class="card-title">Identity & Security</h4>
+                        <p class="card-text">
+                            Secure authentication built on <strong>ASP.NET Core Identity</strong>, password hashing, and role-based <strong>JWT claims</strong>, combined with strict database auditing logs for supervisor actions.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="layers"></i></div>
+                        <h4 class="card-title">Maintainable Architecture</h4>
+                        <p class="card-text">
+                            Pure C# domain rules separated from third-party framework layers (Onion Design). Simplifies automated testing, mock unit tests, and database migrations via <strong>EF Core</strong>.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="cpu"></i></div>
+                        <h4 class="card-title">Resilient Integration</h4>
+                        <p class="card-text">
+                            Configures custom API middlewares for rate-limiting and global exception mapping, backed by resilient <code>HttpClientFactory</code> connections to Python AI microservices.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 10: ML Vitals Pipeline - Preprocessing & Features -->
+        <div class="slide" id="slide-10">
+            <div class="slide-content">
+                <h2 class="slide-title">ML Vitals Pipeline: <span>Preprocessing & Features</span></h2>
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="refresh-cw"></i></div>
+                        <h4 class="card-title">1. Dynamic Preprocessing</h4>
+                        <p class="card-text">
+                            Maps and orders incoming parameters to match the exact feature columns structure expected by the trained model. Handles missing data using median imputer rules.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="scissors"></i></div>
+                        <h4 class="card-title">2. Outlier Clipping</h4>
+                        <p class="card-text">
+                            Clips non-physical sensor outliers: heart rate to [30, 220], blood pressure to [50, 250], blood sugar to [20, 600], oxygen saturation to [20, 100], and pain level to [0, 10].
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="list"></i></div>
+                        <h4 class="card-title">3. 15 Physiological Features</h4>
+                        <p class="card-text">
+                            Feeds vital signs (BP, HR, BS, Temp, SpO2, RR) and behavioral indicators (age, sleep hours, missed meds, meals eaten, mood, water intake, pain level) into classifiers.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 11: ML Vitals Pipeline - Model Selection & Evaluation -->
+        <div class="slide" id="slide-11">
+            <div class="slide-content">
+                <h2 class="slide-title">ML Vitals Pipeline: <span>Model Selection & F1 Evaluation</span></h2>
+                <div class="grid-3">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="cpu"></i></div>
+                        <h4 class="card-title">4 Candidates Evaluated</h4>
+                        <p class="card-text">
+                            Trains and tests four model types: <strong>Random Forest</strong>, <strong>Gradient Boosting</strong>, <strong>Decision Trees</strong>, and <strong>Logistic Regression</strong>.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="trending-up"></i></div>
+                        <h4 class="card-title">F1-Score Optimization</h4>
+                        <p class="card-text">
+                            Prioritizes detecting "High Risk" cases above all. Evaluates performance using F1-Score to optimize the trade-off between precision and recall, minimizing False Negatives to prevent missing any critical health crisis.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="database"></i></div>
+                        <h4 class="card-title">Prediction & Auditing</h4>
+                        <p class="card-text">
+                            Returns classification (High/Low risk) and confidence probability score. Logs features, output, and timestamps to an auditing CSV file.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 12: ML Vitals Pipeline - Override Safety Net -->
+        <div class="slide" id="slide-12">
+            <div class="slide-content">
+                <h2 class="slide-title">ML Vitals Pipeline: <span>Override Safety Net</span></h2>
+                <div class="grid-2">
+                    <div class="glass-card" style="padding: 2rem;">
+                        <h4 class="card-title" style="color:var(--gold);">Hybrid Clinical Overrides</h4>
+                        <p class="card-text" style="margin-bottom: 1rem; font-size:0.95rem;">
+                            To guarantee patient safety, a deterministic rule layer overrides ML outputs for acute symptoms:
+                        </p>
+                        <ul class="list-bullets" style="font-size: 0.9rem; gap: 0.5rem;">
+                            <li><i data-lucide="alert-circle"></i> BP &ge; 160/100 or &le; 85/50 mmHg</li>
+                            <li><i data-lucide="alert-circle"></i> Oxygen Saturation (SpO2) &le; 92%</li>
+                            <li><i data-lucide="alert-circle"></i> Heart Rate &ge; 115 or &le; 45 bpm</li>
+                            <li><i data-lucide="alert-circle"></i> Blood Sugar &ge; 200 or &le; 60 mg/dL</li>
+                            <li><i data-lucide="alert-circle"></i> Missed Medication Doses &ge; 2</li>
+                        </ul>
+                    </div>
+                    <pre style="font-size: 0.8rem; padding: 1.2rem;">
+# FastAPI Rule Overrides
+if data.systolic_bp >= 160 or data.diastolic_bp >= 100:
+    is_high_risk = True
+    confidence = 0.99  # Hypertensive Crisis
+    
+if data.oxygen_saturation <= 92:
+    is_high_risk = True
+    confidence = 0.99  # Hypoxemia
+
+if data.missed_medications >= 2:
+    is_high_risk = True
+    confidence = 0.99  # High Non-Adherence
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 13: Generative AI narratives -->
+        <div class="slide" id="slide-13">
+            <div class="slide-content">
+                <h2 class="slide-title">Gemini AI: <span>Structured Narrative Reports</span></h2>
+                <div class="grid-2">
+                    <div class="glass-card">
+                        <div class="card-icon"><i data-lucide="sparkles"></i></div>
+                        <h3 class="card-title">1. Prompt Construction</h3>
+                        <p class="card-text">
+                            Dynamic aggregation of caregiver observations, times, notes, and vitals. Constructed prompt strictly requires 6 sections: Summary, Medications, Meals, Activities, Observations, and Recommendations.
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <div class="card-icon gold-icon"><i data-lucide="file-text"></i></div>
+                        <h3 class="card-title">2. Fallback Template</h3>
+                        <p class="card-text">
+                            Robust design: If Gemini API rate limits are breached or Internet is down, the system generates a template-based clinical report dynamically from raw database metrics.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 14: Interactive Workflow Simulator -->
+        <div class="slide" id="slide-14">
+            <div class="slide-content">
+                <h2 class="slide-title">Interactive Workflow <span>Simulator</span></h2>
+                <div class="grid-2">
+                    <div>
+                        <p class="card-text" style="margin-bottom: 2rem;">
+                            Click the button below to simulate how a caregiver submitting a high-risk report triggers immediate actions across our three-tier system in real-time.
+                        </p>
+                        <button class="sim-btn" onclick="startSimulation()">Trigger Vitals Report</button>
+                    </div>
+                    <div class="simulator-box">
+                        <div class="sim-node" id="node-1">
+                            <i data-lucide="edit"></i>
+                            <div>
+                                <p style="font-weight:600;">1. Caregiver logs high vitals (React portal)</p>
+                                <p style="font-size:0.8rem; color:var(--text-muted);">BP: 165/105 mmHg, Temp: 38.5°C</p>
+                            </div>
+                        </div>
+                        <div class="sim-node" id="node-2">
+                            <i data-lucide="cpu"></i>
+                            <div>
+                                <p style="font-weight:600;">2. AI Microservice assesses risk</p>
+                                <p style="font-size:0.8rem; color:var(--text-muted);">Clinical Override: High Risk (99% confidence)</p>
+                            </div>
+                        </div>
+                        <div class="sim-node alert-node" id="node-3">
+                            <i data-lucide="bell"></i>
+                            <div>
+                                <p style="font-weight:600; color:var(--rose);">3. SignalR alerts Team Leaders</p>
+                                <p style="font-size:0.8rem; color:var(--rose);">Toast Notification popped up instantly</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 15: Expected vs Actual Results -->
+        <div class="slide" id="slide-15">
+            <div class="slide-content">
+                <h2 class="slide-title">Expected vs Actual <span>Results Comparison</span></h2>
+                <div class="glass-card" style="padding: 1.5rem;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Feature / Core Objective</th>
+                                <th>Expected Status</th>
+                                <th>Implemented Result</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Multi-role System (Admin, TL, Employee, Family)</td>
+                                <td>Full access control</td>
+                                <td class="status-check">✅ ACHIEVED (React Router + JWT claims)</td>
+                            </tr>
+                            <tr>
+                                <td>Predictive AI Vitals Risk Assessment</td>
+                                <td>Random Forest Classifier</td>
+                                <td class="status-check">✅ ACHIEVED (FastAPI + Override Rules)</td>
+                            </tr>
+                            <tr>
+                                <td>Narrative Care Reports Generation</td>
+                                <td>Gemini Integration</td>
+                                <td class="status-check">✅ ACHIEVED (Template Fallback included)</td>
+                            </tr>
+                            <tr>
+                                <td>Real-time Supervisor Notification</td>
+                                <td>WebSockets / SignalR</td>
+                                <td class="status-check">✅ ACHIEVED (Hubs & role-based groups)</td>
+                            </tr>
+                            <tr>
+                                <td>Computer Vision Fall Detection Heuristics</td>
+                                <td>Prototype capability</td>
+                                <td class="status-check" style="color:var(--gold);">⚠️ PROTOTYPED (Bounding box ratios)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 16: Strengths & Limitations -->
+        <div class="slide" id="slide-16">
+            <div class="slide-content">
+                <h2 class="slide-title">System <span>Discussion</span></h2>
+                <div class="grid-2">
+                    <div class="glass-card">
+                        <h4 class="card-title" style="color:var(--emerald);">Strengths</h4>
+                        <p class="card-text">
+                            - Robust clean architecture layers. <br>
+                            - Unique hybrid ML & clinical rule logic safety net. <br>
+                            - Dynamic online AI retraining for diet plans. <br>
+                            - Production-ready security (account lockouts, auditing, password hashing).
+                        </p>
+                    </div>
+                    <div class="glass-card">
+                        <h4 class="card-title" style="color:var(--rose);">Limitations & Future Work</h4>
+                        <p class="card-text">
+                            - Model trained on synthetic records (requires real clinical validation). <br>
+                            - Fall detection currently heuristic-based (future YOLOv8-pose integration planned). <br>
+                            - Access token expiration needs refresh token rotation.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 17: Q&A -->
+        <div class="slide cover-slide" id="slide-17">
+            <h1>Thank You</h1>
+            <p class="subtitle" style="color:var(--gold);">Any Questions?</p>
+            <div class="cover-details">
+                <div class="cover-detail-item">
+                    <p class="label">Project Codebase</p>
+                    <p class="value" style="color:var(--primary);">GitHub Repository</p>
+                </div>
+                <div class="cover-details">
+                <div class="cover-detail-item">
+                    <p class="label">Branding</p>
+                    <p class="value">Sanad - 2026</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="controls">
+        <button class="btn-control" id="btnPrev" onclick="navigateSlide(-1)"><i data-lucide="arrow-left"></i></button>
+        <button class="btn-control" id="btnNext" onclick="navigateSlide(1)"><i data-lucide="arrow-right"></i></button>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Slide navigation logic
+        let currentSlide = 1;
+        const totalSlides = 17;
+
+        const container = document.getElementById('presentationContainer');
+        const slideNumberText = document.getElementById('slideNumber');
+        const progressBar = document.getElementById('progressBar');
+
+        function navigateSlide(direction) {
+            const currentEl = document.getElementById(`slide-${currentSlide}`);
+            let nextSlide = currentSlide + direction;
+
+            if (nextSlide < 1 || nextSlide > totalSlides) return;
+
+            currentEl.classList.remove('active');
+            if (direction > 0) {
+                currentEl.classList.add('previous');
+            } else {
+                currentEl.classList.remove('previous');
+            }
+
+            const nextEl = document.getElementById(`slide-${nextSlide}`);
+            nextEl.classList.remove('previous');
+            nextEl.classList.add('active');
+
+            currentSlide = nextSlide;
+            updateIndicators();
+        }
+
+        function updateIndicators() {
+            slideNumberText.innerText = `${currentSlide} / ${totalSlides}`;
+            const percent = ((currentSlide - 1) / (totalSlides - 1)) * 100;
+            progressBar.style.width = `${percent}%`;
+        }
+
+        // Key bindings
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                navigateSlide(1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                navigateSlide(-1);
+            }
+        });
+
+        // Simulator Logic
+        let simInterval = null;
+        function startSimulation() {
+            // Reset nodes
+            document.getElementById('node-1').classList.remove('active');
+            document.getElementById('node-2').classList.remove('active');
+            document.getElementById('node-3').classList.remove('active');
+
+            setTimeout(() => {
+                document.getElementById('node-1').classList.add('active');
+            }, 100);
+
+            setTimeout(() => {
+                document.getElementById('node-2').classList.add('active');
+            }, 1200);
+
+            setTimeout(() => {
+                document.getElementById('node-3').classList.add('active');
+            }, 2400);
+        }
+
+        // Initialize progress bar
+        updateIndicators();
+    </script>
+</body>
+</html>

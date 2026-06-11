@@ -18,6 +18,7 @@ export default function TeamLeaderNavbar() {
         { name: 'Attendance', path: '/teamleader/attendance' },
         { name: 'Schedules', path: '/teamleader/schedules' },
         { name: 'Visits', path: '/teamleader/visits' },
+        { name: 'Recipes', path: '/teamleader/recipes' },
         { name: 'Profile', path: '/teamleader/profile' },
     ];
 

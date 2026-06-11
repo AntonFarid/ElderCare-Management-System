@@ -85,99 +85,14 @@ def reload_meal_model():
 
 reload_meal_model()
 
-# Default recipes backup (the original 12 recipes)
-DEFAULT_RECIPES = [
-    # Breakfast
-    {
-        "recipe_name": "Antioxidant Oatmeal Bowl",
-        "description": "Warm steel-cut oats topped with fresh blueberries, chia seeds, sliced almonds, and a touch of honey.",
-        "calories": 320, "protein_g": 10, "carbs_g": 52, "fat_g": 8, "type": "breakfast",
-        "tags": ["low-sodium", "high-fiber", "vegetarian", "heart-healthy"]
-    },
-    {
-        "recipe_name": "Vegetable Egg White Frittata",
-        "description": "Fluffy baked egg whites with spinach, diced tomatoes, bell peppers, and low-fat feta cheese.",
-        "calories": 180, "protein_g": 18, "carbs_g": 8, "fat_g": 6, "type": "breakfast",
-        "tags": ["low-sugar", "diabetic-friendly", "high-protein", "low-sodium", "soft-food"]
-    },
-    {
-        "recipe_name": "Creamy Banana Avocado Smoothie",
-        "description": "Blended ripe banana, avocado, Greek yogurt, spinach, and unsweetened almond milk. Easy to swallow and highly nutritious.",
-        "calories": 290, "protein_g": 12, "carbs_g": 35, "fat_g": 11, "type": "breakfast",
-        "tags": ["soft-food", "high-potassium", "low-sodium", "vegetarian"]
-    },
-    {
-        "recipe_name": "Whole Wheat Toast with Poached Eggs",
-        "description": "Two perfectly poached eggs served on a slice of sprouted whole wheat toast with sliced tomatoes.",
-        "calories": 240, "protein_g": 14, "carbs_g": 18, "fat_g": 10, "type": "breakfast",
-        "tags": ["low-sugar", "diabetic-friendly", "high-protein", "heart-healthy"]
-    },
-    # Lunch
-    {
-        "recipe_name": "Herb-Grilled Salmon & Broccoli",
-        "description": "Rich in Omega-3s, grilled salmon fillet seasoned with dill and lemon juice, served with tender steamed broccoli.",
-        "calories": 380, "protein_g": 34, "carbs_g": 12, "fat_g": 18, "type": "lunch",
-        "tags": ["low-sodium", "low-sugar", "diabetic-friendly", "high-protein", "heart-healthy", "salmon", "fish"]
-    },
-    {
-        "recipe_name": "Golden Lentil & Vegetable Soup",
-        "description": "Slow-simmered red lentils, carrots, celery, and sweet potatoes with turmeric and ginger. Mild and soft texture.",
-        "calories": 260, "protein_g": 14, "carbs_g": 42, "fat_g": 3, "type": "lunch",
-        "tags": ["soft-food", "vegetarian", "low-sodium", "low-sugar", "high-fiber", "lentils"]
-    },
-    {
-        "recipe_name": "Quinoa & Roasted Veggie Salad",
-        "description": "Fluffy quinoa tossed with roasted zucchini, bell peppers, eggplant, parsley, and a light olive oil-lemon dressing.",
-        "calories": 310, "protein_g": 9, "carbs_g": 44, "fat_g": 10, "type": "lunch",
-        "tags": ["vegetarian", "low-sodium", "diabetic-friendly", "heart-healthy"]
-    },
-    {
-        "recipe_name": "Baked Cod with Sweet Potato Mash",
-        "description": "Mild, flaky Atlantic cod baked with herbs, served with smooth, fiber-rich sweet potato mash.",
-        "calories": 320, "protein_g": 26, "carbs_g": 38, "fat_g": 5, "type": "lunch",
-        "tags": ["soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "heart-healthy", "cod", "fish"]
-    },
-    # Dinner
-    {
-        "recipe_name": "Tender Roasted Turkey Breast & Pumpkin Purée",
-        "description": "Thinly sliced, tender roasted turkey breast served alongside smooth pumpkin purée and sautéed green beans.",
-        "calories": 340, "protein_g": 30, "carbs_g": 24, "fat_g": 8, "type": "dinner",
-        "tags": ["soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "high-protein", "turkey"]
-    },
-    {
-        "recipe_name": "Mediterranean Chickpea & Spinach Stew",
-        "description": "Flavorful, soft chickpeas cooked in a light tomato broth with fresh spinach, garlic, and extra virgin olive oil.",
-        "calories": 280, "protein_g": 11, "carbs_g": 38, "fat_g": 7, "type": "dinner",
-        "tags": ["vegetarian", "soft-food", "low-sodium", "low-sugar", "diabetic-friendly", "chickpeas"]
-    },
-    {
-        "recipe_name": "Lemon-Garlic Chicken Breast with Quinoa Mash",
-        "description": "Tender poached chicken breast cutlets seasoned with lemon-garlic sauce, served over smooth quinoa mash.",
-        "calories": 390, "protein_g": 36, "carbs_g": 30, "fat_g": 9, "type": "dinner",
-        "tags": ["high-protein", "low-sodium", "low-sugar", "diabetic-friendly", "soft-food", "chicken"]
-    },
-    {
-        "recipe_name": "Creamy Butternut Squash Risotto",
-        "description": "Warm, creamy arborio rice cooked with butternut squash purée, baby spinach, and a sprinkle of parmesan cheese.",
-        "calories": 330, "protein_g": 8, "carbs_g": 58, "fat_g": 6, "type": "dinner",
-        "tags": ["soft-food", "vegetarian", "low-sodium", "risotto"]
-    }
-]
-
 recipes_json_path = "recipes.json"
 RECIPE_BANK = []
 
 def load_recipes_from_json():
     global RECIPE_BANK
     if not os.path.exists(recipes_json_path):
-        try:
-            with open(recipes_json_path, 'w', encoding='utf-8') as f:
-                json.dump(DEFAULT_RECIPES, f, indent=4, ensure_ascii=False)
-            logger.info("Created default recipes.json file.")
-        except Exception as e:
-            logger.error(f"Failed to create default recipes.json: {e}")
-            RECIPE_BANK = DEFAULT_RECIPES.copy()
-            return
+        logger.error(f"Critical Error: {recipes_json_path} was not found on disk!")
+        return
             
     try:
         with open(recipes_json_path, 'r', encoding='utf-8') as f:
@@ -203,7 +118,6 @@ def load_recipes_from_json():
                 logger.info("Successfully merged recipes.json entries into active lookup database.")
     except Exception as e:
         logger.error(f"Failed to load recipes.json: {e}")
-        RECIPE_BANK = DEFAULT_RECIPES.copy()
 
 load_recipes_from_json()
 
@@ -278,7 +192,11 @@ def predict_health_risk(data: HealthDataInput, api_key: str = Depends(get_api_ke
         'sleep_hours': data.sleep_hours,
         'missed_medications': data.missed_medications,
         'meals_eaten_percent': data.meals_eaten_percent,
-        'mood_score': data.mood_score
+        'mood_score': data.mood_score,
+        'oxygen_saturation': data.oxygen_saturation,
+        'respiratory_rate': data.respiratory_rate,
+        'water_intake_ml': data.water_intake_ml,
+        'pain_level': data.pain_level
     }
     
     # Ensure pandas DataFrame columns match training features exactly
@@ -360,9 +278,47 @@ def predict_health_risk(data: HealthDataInput, api_key: str = Depends(get_api_ke
         is_high_risk = True
         confidence = 0.99
 
+    # Oxygen Saturation Override
+    if data.oxygen_saturation is not None and data.oxygen_saturation <= 92:
+        anomalies.append(f"🔻 **Hypoxemia (Oxygen Saturation: {data.oxygen_saturation}%)**: Critical respiratory concern.")
+        reasons.append("Risk of organ hypoperfusion and severe respiratory distress.")
+        actions.append("Administer oxygen if prescribed. Ask the resident to sit upright and perform deep breathing exercises. Monitor closely.")
+        is_high_risk = True
+        confidence = 0.99
+
+    # Respiratory Rate Override
+    if data.respiratory_rate is not None and data.respiratory_rate >= 25:
+        anomalies.append(f"🔺 **Tachypnea (Respiratory Rate: {data.respiratory_rate} breaths/min)**: Abnormally rapid breathing.")
+        reasons.append("Can indicate respiratory infection, heart failure, pulmonary embolism, or anxiety/pain.")
+        actions.append("Ensure the resident is resting quietly. Assess oxygen saturation level immediately. Notify nurse supervisor.")
+        is_high_risk = True
+        confidence = 0.99
+    elif data.respiratory_rate is not None and data.respiratory_rate <= 10:
+        anomalies.append(f"🔻 **Bradypnea (Respiratory Rate: {data.respiratory_rate} breaths/min)**: Dangerously slow breathing.")
+        reasons.append("Risk of respiratory depression or neurological distress.")
+        actions.append("Assess level of consciousness. Keep resident awake. Notify nurse supervisor immediately.")
+        is_high_risk = True
+        confidence = 0.99
+
+    # Water Intake Override
+    if data.water_intake_ml is not None and data.water_intake_ml < 500:
+        anomalies.append(f"⚠️ **Critical Dehydration Risk (Water Intake: {data.water_intake_ml} ml)**: Abnormally low daily fluid intake.")
+        reasons.append("Elderly residents have reduced thirst sensation, putting them at high risk for kidney damage, confusion, and hypotension.")
+        actions.append("Offer small, frequent sips of water or fluids. Record all intake/output carefully.")
+        is_high_risk = True
+        confidence = 0.95
+
+    # Pain Level Override
+    if data.pain_level is not None and data.pain_level >= 7:
+        anomalies.append(f"🔺 **Severe Pain (Pain Score: {data.pain_level}/10)**: High levels of distress or acute discomfort.")
+        reasons.append("Uncontrolled pain can severely impact cardiovascular stability, mobility, and mental status.")
+        actions.append("Administer prescribed analgesic medications. Conduct a physical check to locate pain source. Notify primary nurse.")
+        is_high_risk = True
+        confidence = 0.95
+
     # Handle cases where the ML model predicted High Risk, but individual rule thresholds were not breached
     if is_high_risk and not anomalies:
-        anomalies.append("🧠 **AI Model Pattern Alert**: Multivariate trend anomalies detected.")
+        anomalies.append(" *AI Model Pattern Alert**: Multivariate trend anomalies detected.")
         reasons.append(f"The ML model predicted high risk based on a combined pattern of vitals, age ({data.age}), mobility ({data.mobility_score}/10), sleep ({data.sleep_hours} hrs), and mood ({data.mood_score}/10).")
         actions.append("Perform a physical check-up. Review daily logs and monitor vital trends closely.")
 
@@ -372,7 +328,7 @@ def predict_health_risk(data: HealthDataInput, api_key: str = Depends(get_api_ke
     if is_high_risk:
         report_lines = [
             "### 🚨 URGENT: AI Clinical Health Alert: High Risk Detected",
-            f"Risk Probability: **{confidence * 100:.0f}%**\n",
+            f"Risk Probability: *{confidence * 100:.0f}%*\n",
             "#### 📊 Physiological Anomalies Identified:",
         ]
         for item in anomalies:
@@ -392,14 +348,26 @@ def predict_health_risk(data: HealthDataInput, api_key: str = Depends(get_api_ke
             "### 🩺 AI Clinical Health Assessment: Stable",
             f"Vitals and daily parameters are within standard acceptable physiological ranges (Risk Probability: **{(1 - confidence) * 100:.0f}%**).\n",
             "#### 📈 Current Summary:",
-            f"- **Heart Rate**: {data.heart_rate} bpm (Normal)",
-            f"- **Blood Pressure**: {data.systolic_bp}/{data.diastolic_bp} mmHg (Normal)",
-            f"- **Blood Sugar**: {data.blood_sugar} mg/dL (Normal)",
-            f"- **Body Temperature**: {temp_display} (Normal)",
-            f"- **Medication Adherence**: All doses taken (0 missed)",
+            f"- *Heart Rate*: {data.heart_rate} bpm (Normal)",
+            f"- *Blood Pressure*: {data.systolic_bp}/{data.diastolic_bp} mmHg (Normal)",
+            f"- *Blood Sugar*: {data.blood_sugar} mg/dL (Normal)",
+            f"- *Body Temperature*: {temp_display} (Normal)",
+            f"- *Medication Adherence*: All doses taken (0 missed)" if data.missed_medications == 0 else f"- *Medication Adherence*: {data.missed_medications} missed doses",
+        ]
+        
+        if data.oxygen_saturation is not None:
+            report_lines.append(f"- *Oxygen Saturation*: {data.oxygen_saturation}% (Normal)")
+        if data.respiratory_rate is not None:
+            report_lines.append(f"- *Respiratory Rate*: {data.respiratory_rate} breaths/min (Normal)")
+        if data.water_intake_ml is not None:
+            report_lines.append(f"- *Daily Water Intake*: {data.water_intake_ml} ml (Normal)")
+        if data.pain_level is not None:
+            report_lines.append(f"- *Pain Level*: {data.pain_level}/10 (Normal)")
+            
+        report_lines.extend([
             "\n#### 📋 Clinical Recommendation:",
             "- Continue standard daily care routine and scheduled observations. No acute interventions required."
-        ]
+        ])
         
         # Add warnings for minor issues
         minor_notes = []
@@ -509,6 +477,18 @@ def add_recipe(recipe: RecipeInput, api_key: str = Depends(get_api_key)):
     # Reload in-memory lookup table
     load_recipes_from_json()
     
+    # Trigger model retraining to make the recipe active for prediction immediately
+    try:
+        from train_model import train_meal_recommender
+        with meal_model_lock:
+            status = train_meal_recommender(augment=True)
+        if status:
+            reload_meal_model()
+            load_recipes_from_json()
+            logger.info("Successfully retrained and reloaded model with new recipe.")
+    except Exception as e:
+        logger.error(f"Failed to auto-retrain model after adding recipe: {e}")
+    
     return recipe
 
 @app.post("/api/ml/recommend-diet", response_model=DietRecommendationOutput)
@@ -527,6 +507,12 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
         lookup = dict(model_ref['recipe_lookup'])
 
     logger.info(f"Received diet recommendation request for resident ID {data.elderly_id}")
+    
+    # Seed the random number generator with a combination of elderly_id and the current date
+    # to ensure identical recommendations for the same resident within the same day,
+    # while still allowing diet variety/rotation across different days.
+    date_seed = int(datetime.now().strftime("%Y%m%d")) + data.elderly_id
+    random.seed(date_seed)
     # 2. Extract inputs
     age = data.age
     allergies = [a.strip().lower() for a in data.allergies.replace(";", ",").split(",") if a.strip()]
@@ -596,43 +582,146 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
     # Format as pandas DataFrame matching feature columns exactly
     features_df = pd.DataFrame([input_features], columns=model_ref['features'])
 
-    # 4. Predict meal suggestions
-    predicted_breakfast = model_ref['clf_breakfast'].predict(features_df)[0]
-    predicted_lunch = model_ref['clf_lunch'].predict(features_df)[0]
-    predicted_dinner = model_ref['clf_dinner'].predict(features_df)[0]
-
-    # 5. Helper function to check allergen matching and perform safe fallback
+    # Helper function to check allergen matching
     def contains_allergen(recipe_name, allergen_list):
+        import re
         text = recipe_name.lower()
         for allergen in allergen_list:
-            if allergen in text:
+            allergen_clean = allergen.strip().lower()
+            
+            # Singularize allergen by removing trailing 's'
+            allergen_singular = allergen_clean[:-1] if allergen_clean.endswith('s') else allergen_clean
+            
+            # 1. Peanut allergy (specifically)
+            if "peanut" in allergen_clean:
+                if "peanut" in text:
+                    return True
+                continue
+                
+            # 2. Tree nut allergy (distinguished from peanut)
+            if "tree nut" in allergen_clean or allergen_clean in ["nut", "nuts"]:
+                # Check for common tree nuts (chia is a seed, not a tree nut, so not included here)
+                tree_nuts = ["almond", "walnut", "hazelnut", "pecan", "cashew", "macadamia", "pistachio", "brazil nut", "chestnut"]
+                if any(nut in text for nut in tree_nuts):
+                    return True
+                # Check for word "nut" or "nuts" but avoid matching "coconut" or "peanut" unless desired
+                if re.search(r'\bnuts?\b', text):
+                    return True
+                continue
+                
+            # 3. Seeds (like chia, sesame)
+            if "seed" in allergen_clean or "chia" in allergen_clean or "sesame" in allergen_clean:
+                if any(x in text for x in ["seed", "chia", "sesame", "flax"]):
+                    return True
+                continue
+
+            # 4. Seafood / Fish
+            if "seafood" in allergen_clean or "fish" in allergen_clean:
+                seafood_words = ["salmon", "cod", "fish", "tuna", "shrimp", "crab", "lobster", "seafood", "prawn", "halibut", "snapper", "bass"]
+                if any(x in text for x in seafood_words):
+                    return True
+                continue
+                
+            # 5. Milk / Dairy
+            if any(x in allergen_clean for x in ["milk", "dairy", "lactose"]):
+                dairy_words = ["cheese", "yogurt", "cream", "milk", "butter", "dairy", "lactose", "ghee", "feta", "parm", "whey"]
+                if any(x in text for x in dairy_words):
+                    return True
+                continue
+                
+            # 6. Egg allergy
+            if "egg" in allergen_clean:
+                # Use regex to match 'egg' or 'eggs' but avoid matching 'veggie' or 'eggplant'
+                if re.search(r'\b(egg|eggs)\b', text) or "egg white" in text or "egg-white" in text:
+                    return True
+                continue
+                
+            # 7. Soy allergy
+            if "soy" in allergen_clean:
+                if any(x in text for x in ["soy", "tofu", "edamame", "tempeh"]):
+                    return True
+                continue
+
+            # 8. General fallback matching
+            if allergen_singular in text:
                 return True
-            if "nut" in allergen and ("almond" in text or "nut" in text or "chia" in text):
-                return True
-            if "seafood" in allergen and ("salmon" in text or "cod" in text or "fish" in text or "tuna" in text):
-                return True
-            if "milk" in allergen and ("cheese" in text or "yogurt" in text or "cream" in text or "milk" in text or "butter" in text):
-                return True
+                
         return False
 
-    # lookup is already populated under the lock reference
-
-    def get_safe_recipe(predicted_name, meal_type, allergen_list):
-        if not contains_allergen(predicted_name, allergen_list):
-            return predicted_name
-
-        # Fallback: scan all known recipes in lookup database and pick first safe one
-        all_recipes = sorted(list(lookup.keys()))
-        for name in all_recipes:
-            if not contains_allergen(name, allergen_list):
-                return name
+    # Predict safe meal using probabilistic top-5 class sampling, allergy-filtering, and clinical tag boosting
+    def predict_safe_meal(clf, meal_type, allergen_list):
+        # Get class probabilities
+        probabilities = clf.predict_proba(features_df)[0]
+        class_probs = list(zip(clf.classes_, probabilities))
         
-        # If absolutely no recipe is safe from the patient's active allergens
+        # Filter out classes containing allergens
+        safe_class_probs = [(name, prob) for name, prob in class_probs if not contains_allergen(name, allergen_list)]
+        
+        # Apply clinical tag matching boost to help custom / suitable recipes surface
+        boosted_probs = []
+        for name, prob in safe_class_probs:
+            recipe_details = lookup.get(name.strip(), {})
+            tags = [t.lower().strip() for t in recipe_details.get("tags", [])]
+            
+            boost_multiplier = 1.0
+            
+            # 1. Cardiovascular / Hypertension matching
+            if is_heart_disease or is_hypertensive:
+                if "heart-healthy" in tags or "low-sodium" in tags or "omega-3" in tags:
+                    boost_multiplier += 3.0
+            
+            # 2. Diabetes matching
+            if is_diabetic:
+                if "diabetic-friendly" in tags or "low-sugar" in tags:
+                    boost_multiplier += 3.0
+                    
+            # 3. Weight Loss / Low Appetite matching
+            if is_weight_loss:
+                if "high-protein" in tags or "calorie-dense" in tags:
+                    boost_multiplier += 2.0
+                    
+            # 4. Specific dietary restrictions
+            for restriction in restrictions:
+                rest_clean = restriction.strip().lower()
+                if "soft" in rest_clean and "soft" in tags:
+                    boost_multiplier += 2.5
+                if "sodium" in rest_clean and "low-sodium" in tags:
+                    boost_multiplier += 4.0
+                if "vegetarian" in rest_clean and "vegetarian" in tags:
+                    boost_multiplier += 4.0
+                if "vegan" in rest_clean and "vegan" in tags:
+                    boost_multiplier += 4.0
+                if "gluten" in rest_clean and "gluten-free" in tags:
+                    boost_multiplier += 3.0
+            
+            boosted_probs.append((name, prob * boost_multiplier))
+            
+        if boosted_probs:
+            # Sort by boosted probability descending
+            boosted_probs.sort(key=lambda x: x[1], reverse=True)
+            # Take top 5 options to allow a wider safe pool for custom meals
+            top_options = boosted_probs[:5]
+            names = [x[0] for x in top_options]
+            weights = [x[1] for x in top_options]
+            
+            if sum(weights) > 0:
+                # Square the weights to focus selection on the highest scoring clinically appropriate options,
+                # while still allowing variety when scores are close.
+                squared_weights = [w ** 2 for w in weights]
+                return random.choices(names, weights=squared_weights, k=1)[0]
+            else:
+                return random.choice(names)
+                
+        # Fallback to recipes.json
+        safe_recipes = [r["recipe_name"] for r in RECIPE_BANK if r["type"].lower() == meal_type and not contains_allergen(r["recipe_name"], allergen_list)]
+        if safe_recipes:
+            return random.choice(safe_recipes)
+            
         return "Custom Dietary Blend (Dietitian Review Required)"
 
-    final_breakfast = get_safe_recipe(predicted_breakfast, "breakfast", allergies)
-    final_lunch = get_safe_recipe(predicted_lunch, "lunch", allergies)
-    final_dinner = get_safe_recipe(predicted_dinner, "dinner", allergies)
+    final_breakfast = predict_safe_meal(model_ref['clf_breakfast'], "breakfast", allergies)
+    final_lunch = predict_safe_meal(model_ref['clf_lunch'], "lunch", allergies)
+    final_dinner = predict_safe_meal(model_ref['clf_dinner'], "dinner", allergies)
 
     # 6. Build MealItems by fetching macros from lookup database
     def make_meal_item(recipe_name, meal_type):
@@ -680,33 +769,93 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
         "### 📋 AI Dietitian Clinical Rationale",
     ]
     
+    total_cal = sum(m.calories for m in selected_meals)
+    total_protein = sum(m.protein_g for m in selected_meals)
+
     if has_unsafe_meal:
         notes_lines.append("> [!CAUTION]")
         notes_lines.append("> ⚠️ **CRITICAL ALERT: EXTREME ALLERGIES DETECTED**")
         notes_lines.append("> The resident's allergy and restriction profile is extremely restrictive. No pre-configured recipes in our database are 100% safe. **A dietitian or kitchen supervisor must customize this meal plan manually to ensure safety.**\n")
 
+    # Dynamic Nutritional Deficit Alert block at the top if targets are missed
+    if total_cal < 1400 or total_protein < 65:
+        notes_lines.append("> [!IMPORTANT]")
+        notes_lines.append("> ⚠️ **NUTRITIONAL DEFICIT WARNING & PROTOCOLS:**")
+        notes_lines.append(f"> The prescribed main meals provide a total daily intake of approximately **{total_cal} kcal** and **{total_protein}g protein**, which falls below standard senior health requirements (recommended minimums: 1,400 kcal and 65g protein).")
+        notes_lines.append("> **Actionable Clinical Care Protocols:**")
+        
+        # Customize snacks based on allergies
+        has_nut_allergy = any("peanut" in a or "nut" in a for a in allergies)
+        has_dairy_allergy = any("milk" in a or "dairy" in a for a in allergies)
+        
+        if has_nut_allergy and has_dairy_allergy:
+            snacks = "avocado slices, hummus with whole-wheat crackers, or plant-based dairy-free protein shakes"
+        elif has_nut_allergy:
+            snacks = "Greek yogurt, soft cheese, cottage cheese, hummus with crackers, or avocado"
+        elif has_dairy_allergy:
+            snacks = "hummus with crackers, avocado, dairy-free protein pudding, or peanut/almond butter on toast (ensure nut compatibility)"
+        else:
+            snacks = "Greek yogurt, soft cheese, peanut butter on whole-wheat crackers, or hard-boiled eggs"
+            
+        notes_lines.append(f"> 1. **Supplemental Snacks:** Offer 2-3 small, high-calorie, nutrient-dense snacks between meals (e.g., {snacks}).")
+        
+        if has_dairy_allergy:
+            notes_lines.append("> 2. **Liquid Nutrition:** Administer daily specialized dairy-free/plant-based liquid nutritional supplements (e.g., soy-based or pea-protein drinks) under clinical supervision.")
+        else:
+            notes_lines.append("> 2. **Liquid Nutrition:** Administer a daily liquid nutritional supplement (e.g., Ensure, Glucerna, or protein shake) under clinical supervision to bridge the deficit.")
+            
+        notes_lines.append("> 3. **Protein Enrichment:** Enrich soup, purees, or sauces by mixing in protein powders, egg whites, or high-protein milk derivatives where appropriate.\n")
+
     notes_lines.append(f"* **Nutritional Intake Analysis:** Resident appetite is averaging **{data.avg_meals_eaten_percent:.1f}%** meals consumed over the last week.")
     
-    if data.avg_meals_eaten_percent < 60:
-        notes_lines.append("  * ⚠️ *Clinical Note:* Appetite is low. Dietary plan prioritizes soft-textured, nutrient-dense meals to ensure swallowing comfort and prevent weight loss.")
+    is_low_appetite = data.avg_meals_eaten_percent < 60
+    if is_low_appetite:
+        notes_lines.append("  * ⚠️ *Clinical Note:* Appetite is low. Dietary plan prioritizes soft-textured, nutrient-dense meals to ensure swallowing comfort, maximize calorie intake, and prevent weight loss.")
     else:
         notes_lines.append("  * *Clinical Note:* Appetite is stable. Continuing standard calorie-balanced plan.")
 
     notes_lines.append("\n* **BMI & Body Mass Index Analysis:**")
-    if bmi < 18.5:
-        notes_lines.append(f"  * ⚖️ **Underweight Alert (BMI: {bmi:.1f}):** Recommended high-protein, calorie-dense foods (e.g., nuts, seeds, avocado, whole grains) to support healthy weight gain and muscle preservation.")
-    elif bmi >= 25.0:
-        notes_lines.append(f"  * ⚖️ **Overweight/Obesity Alert (BMI: {bmi:.1f}):** Recommended portion control, low-calorie density, high-fiber foods, and reduced sugar/refined carbohydrates to manage weight and metabolic health.")
+    # Determine senior status
+    is_senior = age >= 65
+    
+    if is_senior:
+        # Senior BMI standards: Underweight < 22, Healthy/Protective 22-30, Obese >= 30
+        if bmi < 22.0:
+            notes_lines.append(f"  * ⚖️ **Underweight Alert (BMI: {bmi:.1f} - Senior Standard):** Recommended high-protein, calorie-dense foods (e.g., avocado, whole grains, eggs) to support healthy weight gain, combat low appetite, and prevent muscle loss/sarcopenia.")
+        elif bmi >= 30.0:
+            if is_low_appetite:
+                notes_lines.append(f"  * ⚖️ **Obesity/Elevated BMI (BMI: {bmi:.1f} - Senior Standard):** Weight-reduction and portion-control measures are *temporarily deferred* due to low appetite and malnutrition risk. Primary focus is maintaining muscle mass and ensuring adequate nutrition.")
+            else:
+                notes_lines.append(f"  * ⚖️ **Obesity Alert (BMI: {bmi:.1f} - Senior Standard):** Recommended portion control, lower calorie density, high-fiber foods, and reduced sugar/refined carbohydrates to manage weight and metabolic health.")
+        else:
+            notes_lines.append(f"  * ⚖️ **Healthy Weight (BMI: {bmi:.1f} - Senior Standard):** BMI falls within the protective senior range (22.0 - 29.9). Continuing balanced diet to maintain stable weight.")
     else:
-        notes_lines.append(f"  * ⚖️ **Healthy Weight (BMI: {bmi:.1f}):** Continuing balanced diet suitable for maintaining current stable weight.")
+        # Standard adult BMI guidelines
+        if bmi < 18.5:
+            notes_lines.append(f"  * ⚖️ **Underweight Alert (BMI: {bmi:.1f}):** Recommended high-protein, calorie-dense foods to support healthy weight gain and muscle preservation.")
+        elif bmi >= 25.0:
+            if is_low_appetite:
+                notes_lines.append(f"  * ⚖️ **Overweight/Obesity Alert (BMI: {bmi:.1f}):** Portion-control and calorie-reduction goals are *temporarily deferred* because appetite is low. Nutrition intake and lean mass retention take immediate priority.")
+            else:
+                notes_lines.append(f"  * ⚖️ **Overweight/Obesity Alert (BMI: {bmi:.1f}):** Recommended portion control, low-calorie density, high-fiber foods, and reduced sugar/refined carbohydrates to manage weight and metabolic health.")
+        else:
+            notes_lines.append(f"  * ⚖️ **Healthy Weight (BMI: {bmi:.1f}):** Continuing balanced diet suitable for maintaining current stable weight.")
 
     notes_lines.append("\n* **Vital Trends & Medical History Assessment:**")
     if is_heart_disease:
         notes_lines.append("  * 🩺 Resident has recorded cardiovascular conditions (e.g. Heart Disease). Plan restricts high-cholesterol foods and prioritizes heart-healthy choices.")
-
-    if is_hypertensive:
+        notes_lines.append("  * 🫀 **Cardiovascular Nutritional Targets:**\n"
+                           "    * **Sodium:** Restrict daily intake to < 1,500 mg.\n"
+                           "    * **Saturated Fat:** Limit to < 5-6% of total daily energy (approx. 7-10g per day).\n"
+                           "    * **Dietary Cholesterol:** Limit to < 200 mg per day.\n"
+                           "    * **Dietary Fiber:** Aim for 25-30g per day to support vascular health and lipid clearance.")
+    elif is_hypertensive:
+        # Hypertensive but no explicitly flagged heart disease still benefits from low sodium targets
         notes_lines.append(f"  * 🩺 Average Systolic BP is elevated (**{data.recent_avg_systolic_bp:.1f} mmHg**). Recommended sodium-restricted, heart-healthy meals.")
-    elif not is_heart_disease:
+        notes_lines.append("  * 🫀 **Hypertension Dietetic Targets:**\n"
+                           "    * **Sodium:** Restrict daily intake to < 1,500 mg.\n"
+                           "    * **Dietary Fiber:** Target 25-30g per day to manage cardiovascular pressure.")
+    else:
         notes_lines.append(f"  * 🩺 Average Blood Pressure is stable (**{data.recent_avg_systolic_bp:.1f} mmHg** systolic).")
         
     if is_diabetic:
@@ -753,7 +902,7 @@ def recommend_diet(data: DietRecommendationInput, api_key: str = Depends(get_api
     else:
         notes_lines.append("  * ✅ No specific dietary restrictions required.")
 
-    notes_lines.append(f"\n* **Meal Breakdown:** The selected menu offers a total daily intake of approximately **{sum(m.calories for m in selected_meals)} kcal** containing **{sum(m.protein_g for m in selected_meals)}g protein**, which supports lean mass retention and cardiovascular health.")
+    notes_lines.append(f"\n* **Meal Breakdown:** The selected menu offers a total daily intake of approximately **{total_cal} kcal** containing **{total_protein}g protein**, which supports lean mass retention and cardiovascular health.")
 
     return DietRecommendationOutput(
         elderly_id=data.elderly_id,
@@ -775,10 +924,14 @@ def retrain_model(api_key: str = Depends(get_api_key)):
         # We run this inside the lock to make sure we don't have multiple retraining runs concurrently 
         # or load the model while it's in a partially saved state on disk.
         with meal_model_lock:
-            success = train_meal_recommender(augment=True)
+            status = train_meal_recommender(augment=True)
             
-        if not success:
+        if not status:
             raise HTTPException(status_code=500, detail="Retraining failed. Check service logs.")
+            
+        if status == "skipped":
+            logger.info("Model is already up-to-date. Retraining skipped.")
+            return {"status": "success", "message": "Meal recommendation model is already up-to-date. Retraining skipped."}
             
         # Reload the newly trained model into memory
         reload_meal_model()

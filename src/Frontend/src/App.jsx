@@ -55,6 +55,7 @@ import TeamLeaderViewReport from './pages/teamleader/ViewReport';
 import TeamLeaderEmployeePerformance from './pages/teamleader/TeamLeaderEmployeePerformance';
 import TeamLeaderCreateSchedule from './pages/teamleader/CreateSchedule';
 import TeamLeaderNotifications from './pages/teamleader/Notifications';
+import TeamLeaderRecipes from './pages/teamleader/Recipes';
 
 // Family Pages
 import Messages from './pages/family/Messages';
@@ -162,12 +163,14 @@ const router = createBrowserRouter([
       { path: 'reports', element: <TeamLeaderReports /> },
       { path: 'reports/:id', element: <TeamLeaderViewReport /> },
       { path: 'residents', element: <TeamLeaderResidents /> },
+      { path: 'residents/:id', element: <ResidentDetails /> },
       { path: 'employees', element: <TeamLeaderEmployees /> },
       { path: 'employees/:id/performance', element: <TeamLeaderEmployeePerformance /> },
       { path: 'attendance', element: <TeamLeaderAttendance /> },
       { path: 'schedules', element: <TeamLeaderSchedules /> },
       { path: 'schedules/create', element: <TeamLeaderCreateSchedule /> },
       { path: 'visits', element: <TeamLeaderVisits /> },
+      { path: 'recipes', element: <TeamLeaderRecipes /> },
       { path: 'profile', element: <TeamLeaderProfile /> },
       { path: 'notifications', element: <TeamLeaderNotifications /> },
     ]

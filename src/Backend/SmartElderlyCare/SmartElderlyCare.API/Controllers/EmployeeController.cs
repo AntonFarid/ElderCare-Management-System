@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartElderlyCare.Application.DTOs.Common;
 using SmartElderlyCare.Application.DTOs.DailyReport;
@@ -8,6 +8,7 @@ using SmartElderlyCare.Application.DTOs.User;
 using SmartElderlyCare.Application.Interfaces;
 using SmartElderlyCare.Application.Wrappers;
 using System.Security.Claims;
+using SmartElderlyCare.Application.DTOs.AI;
 
 namespace SmartElderlyCare.API.Controllers;
 
@@ -340,6 +341,31 @@ public class EmployeeController : ControllerBase
     {
         var employeeId = GetCurrentEmployeeId();
         var response = await _employeeService.GetCurrentAttendanceStatusAsync(employeeId);
+        return Ok(response);
+    }
+
+    #endregion
+
+    #region AI Diet Advisor
+
+    /// <summary>
+    /// Get AI diet recommendation for an assigned resident
+    /// </summary>
+    /// <param name="elderlyId">Resident ID</param>
+    /// <returns>Diet recommendation detailing Breakfast, Lunch, Dinner and notes</returns>
+    [HttpGet("assigned-elderly/{elderlyId}/diet-recommendation")]
+    [ProducesResponseType(typeof(Response<DietRecommendationOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDietRecommendation(int elderlyId)
+    {
+        var employeeId = GetCurrentEmployeeId();
+        var response = await _employeeService.GetDietRecommendationAsync(employeeId, elderlyId);
+        if (!response.Succeeded)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, response);
+        }
         return Ok(response);
     }
 

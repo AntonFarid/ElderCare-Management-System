@@ -146,7 +146,11 @@ def test_predict_low_risk():
         "sleep_hours": 7.5,
         "missed_medications": 0,
         "meals_eaten_percent": 100,
-        "mood_score": 9
+        "mood_score": 9,
+        "oxygen_saturation": 98,
+        "respiratory_rate": 16,
+        "water_intake_ml": 1800,
+        "pain_level": 1
     }
     status, body = run_post_request("/api/ml/predict-health-risk", low_risk_data)
     assert status == 200, f"Expected status 200, got {status}"
@@ -169,7 +173,11 @@ def test_predict_high_risk():
         "sleep_hours": 3.0,      # Insufficient sleep
         "missed_medications": 3, # Missed multiple doses
         "meals_eaten_percent": 25, # Barely ate
-        "mood_score": 2          # Poor mood
+        "mood_score": 2,          # Poor mood
+        "oxygen_saturation": 88,  # Hypoxemia
+        "respiratory_rate": 28,   # Tachypnea
+        "water_intake_ml": 300,   # Dehydration
+        "pain_level": 8           # Severe pain
     }
     status, body = run_post_request("/api/ml/predict-health-risk", high_risk_data)
     assert status == 200, f"Expected status 200, got {status}"

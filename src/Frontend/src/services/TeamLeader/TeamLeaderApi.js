@@ -265,6 +265,35 @@ class TeamLeaderApiServices {
             headers: this.#getAuthHeaders()
         });
     }
+
+    // GET /api/TeamLeader/recipes
+    async getRecipes() {
+        return await axios.get(import.meta.env.VITE_BASE_URL + "TeamLeader/recipes", {
+            headers: this.#getAuthHeaders()
+        });
+    }
+
+    // POST /api/TeamLeader/recipes
+    async addRecipe(data) {
+        return await axios.post(import.meta.env.VITE_BASE_URL + "TeamLeader/recipes", data, {
+            headers: this.#getAuthHeaders()
+        });
+    }
+
+    // POST /api/TeamLeader/recipes/retrain
+    async retrainModel() {
+        return await axios.post(import.meta.env.VITE_BASE_URL + "TeamLeader/recipes/retrain", null, {
+            headers: this.#getAuthHeaders()
+        });
+    }
+
+    // GET /api/TeamLeader/elderly/{elderlyId}
+    async getElderlyById(elderlyId) {
+        const id = parseInt(elderlyId);
+        return await axios.get(import.meta.env.VITE_BASE_URL + `TeamLeader/elderly/${id}`, {
+            headers: this.#getAuthHeaders()
+        });
+    }
 }
 
 export const teamLeaderApiServices = new TeamLeaderApiServices();

@@ -222,5 +222,200 @@
             "heart-healthy",
             "low-sodium"
         ]
+    },
+    {
+        "recipe_name": "Berry Chia Seed Pudding",
+        "description": "A light and refreshing pudding made with chia seeds, unsweetened almond milk, vanilla, and fresh mixed berries. Rich in Omega-3s and fiber.",
+        "calories": 210,
+        "protein_g": 5,
+        "carbs_g": 22,
+        "fat_g": 11,
+        "type": "breakfast",
+        "tags": [
+            "low-sodium",
+            "high-fiber",
+            "vegetarian",
+            "heart-healthy",
+            "diabetic-friendly",
+            "soft-food"
+        ]
+    },
+    {
+        "recipe_name": "Scrambled Tofu Toast",
+        "description": "Crumbled tofu sautéed with turmeric, baby spinach, and cherry tomatoes, served on toasted whole grain bread.",
+        "calories": 260,
+        "protein_g": 16,
+        "carbs_g": 25,
+        "fat_g": 9,
+        "type": "breakfast",
+        "tags": [
+            "vegetarian",
+            "vegan",
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "high-protein"
+        ]
+    },
+    {
+        "recipe_name": "Turkey Avocado Wrap",
+        "description": "Lean sliced turkey breast with fresh avocado, cucumber, and baby greens rolled in a whole wheat tortilla.",
+        "calories": 350,
+        "protein_g": 24,
+        "carbs_g": 28,
+        "fat_g": 12,
+        "type": "lunch",
+        "tags": [
+            "high-protein",
+            "low-sugar",
+            "diabetic-friendly",
+            "heart-healthy"
+        ]
+    },
+    {
+        "recipe_name": "Creamy Tomato Basil Soup",
+        "description": "A warm, smooth tomato soup blended with fresh basil and a touch of Greek yogurt for protein. Easy to swallow.",
+        "calories": 190,
+        "protein_g": 8,
+        "carbs_g": 24,
+        "fat_g": 7,
+        "type": "lunch",
+        "tags": [
+            "soft-food",
+            "vegetarian",
+            "low-sugar",
+            "diabetic-friendly"
+        ]
+    },
+    {
+        "recipe_name": "Baked Salmon with Quinoa",
+        "description": "Herb-crusted baked salmon fillet served over fluffy white quinoa and roasted asparagus spears.",
+        "calories": 410,
+        "protein_g": 35,
+        "carbs_g": 28,
+        "fat_g": 16,
+        "type": "dinner",
+        "tags": [
+            "high-protein",
+            "low-sodium",
+            "diabetic-friendly",
+            "heart-healthy",
+            "salmon",
+            "fish"
+        ]
+    },
+    {
+        "recipe_name": "Mashed Potato & Grilled Chicken Cutlet",
+        "description": "Tender, thinly sliced grilled chicken breast cutlet served with smooth garlic mashed potatoes and steamed baby carrots.",
+        "calories": 380,
+        "protein_g": 32,
+        "carbs_g": 32,
+        "fat_g": 10,
+        "type": "dinner",
+        "tags": [
+            "soft-food",
+            "high-protein",
+            "low-sodium",
+            "diabetic-friendly"
+        ]
+    },
+    {
+        "recipe_name": "Cinnamon Apple Chia Oatmeal",
+        "description": "A heart-healthy bowl of rolled oats cooked in water, mixed with fresh diced apples, a dash of ground cinnamon, chia seeds, and a splash of unsweetened soy milk. Provides rich soluble fiber to lower cholesterol, zero added salt, and is 100% peanut-free.",
+        "calories": 280,
+        "protein_g": 8,
+        "carbs_g": 52,
+        "fat_g": 6,
+        "type": "breakfast",
+        "tags": [
+            "low-sodium",
+            "heart-healthy",
+            "high-fiber",
+            "nut-free",
+            "dairy-free",
+            "soft"
+        ]
+    },
+    {
+        "recipe_name": "Lemon Herb Grilled Salmon with Quinoa",
+        "description": "Fresh salmon fillet grilled with fresh lemon juice, dill, and garlic powder (no added salt), served over fluffy quinoa and steamed broccoli. Rich in heart-healthy Omega-3 fatty acids, low-sodium, and completely nut-free.",
+        "calories": 410,
+        "protein_g": 32,
+        "carbs_g": 35,
+        "fat_g": 14,
+        "type": "lunch",
+        "tags": [
+            "low-sodium",
+            "heart-healthy",
+            "omega-3",
+            "nut-free",
+            "gluten-free"
+        ]
+    },
+    {
+        "recipe_name": "Mediterranean Lentil and Vegetable Stew",
+        "description": "A thick, comforting stew of brown lentils, spinach, carrots, and celery, simmered with crushed tomatoes, oregano, and extra virgin olive oil. High in vegetable protein and soluble fiber to support cardiovascular clearance with zero added sodium.",
+        "calories": 350,
+        "protein_g": 18,
+        "carbs_g": 48,
+        "fat_g": 8,
+        "type": "dinner",
+        "tags": [
+            "low-sodium",
+            "heart-healthy",
+            "high-fiber",
+            "nut-free",
+            "vegetarian",
+            "soft"
+        ]
+    },
+    {
+        "recipe_name": "Low-Sodium Herb Scrambled Eggs",
+        "description": "Soft-scrambled egg whites with chives, fresh spinach, and cherry tomatoes, prepared with no added salt or sugar.",
+        "calories": 150,
+        "protein_g": 14,
+        "carbs_g": 5,
+        "fat_g": 4,
+        "type": "breakfast",
+        "tags": [
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "heart-healthy",
+            "soft-food"
+        ]
+    },
+    {
+        "recipe_name": "Garlic Lemon Baked Cod with Cauliflower Mash",
+        "description": "Baked cod fillet seasoned with garlic and lemon juice, served over a side of smooth, low-carb mashed cauliflower.",
+        "calories": 290,
+        "protein_g": 28,
+        "carbs_g": 18,
+        "fat_g": 6,
+        "type": "lunch",
+        "tags": [
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "heart-healthy",
+            "soft-food",
+            "fish"
+        ]
+    },
+    {
+        "recipe_name": "Ginger Tofu and Broccoli Stir-Fry",
+        "description": "Pan-seared extra-firm tofu with broccoli and carrots, seasoned with fresh ginger and garlic (zero soy sauce or salt added).",
+        "calories": 320,
+        "protein_g": 15,
+        "carbs_g": 22,
+        "fat_g": 8,
+        "type": "dinner",
+        "tags": [
+            "low-sodium",
+            "low-sugar",
+            "diabetic-friendly",
+            "heart-healthy",
+            "vegetarian"
+        ]
     }
 ]

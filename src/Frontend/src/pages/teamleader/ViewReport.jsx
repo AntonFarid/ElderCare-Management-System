@@ -439,11 +439,11 @@ export default function ViewReport() {
                                     else if (type.includes("oxygen") || name.includes("oxygen") || name.includes("spo2") || name.includes("sat")) {
                                         const spo2 = parseInt(value);
                                         if (!isNaN(spo2)) {
-                                            if (spo2 < 90) {
+                                            if (spo2 <= 92) {
                                                 isAlert = true;
                                                 alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
                                                 alertLabel = "Critical";
-                                            } else if (spo2 < 95) {
+                                            } else if (spo2 <= 94) {
                                                 isAlert = true;
                                                 alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
                                                 alertLabel = "Warning";
@@ -496,6 +496,70 @@ export default function ViewReport() {
                                                 alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
                                                 alertLabel = "Warning";
                                             }
+                                        }
+                                    }
+                                    // 6. Water Intake Check
+                                    else if (name.includes("water") || (type.includes("meal") && name.includes("water"))) {
+                                        const water = parseInt(value);
+                                        if (!isNaN(water)) {
+                                            if (water < 500) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            } else if (water < 1000) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+                                    // 7. Pain Level Check
+                                    else if (name.includes("pain") || (type.includes("symptom") && name.includes("pain"))) {
+                                        const pain = parseInt(value);
+                                        if (!isNaN(pain)) {
+                                            if (pain >= 7) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            } else if (pain >= 4) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+                                    // 8. Respiratory Rate Check
+                                    else if (name.includes("respiratory") || name === "rr" || (type.includes("vital") && (name.includes("respiratory") || name.includes("breaths")))) {
+                                        const rr = parseInt(value);
+                                        if (!isNaN(rr)) {
+                                            if (rr >= 25 || rr <= 10) {
+                                                isAlert = true;
+                                                alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                alertLabel = "Critical";
+                                            } else if (rr >= 21 || rr <= 11) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        }
+                                    }
+                                    // 9. Missed Medications Check
+                                    else if (type.includes("medication") || name.includes("medication") || name.includes("dose") || name.includes("taken")) {
+                                        const missedVal = parseInt(value);
+                                        if (!isNaN(missedVal) && (name.includes("missed") || type.includes("missed"))) {
+                                            if (missedVal >= 2) {
+                                                isAlert = true;
+                                                alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                                alertLabel = "Critical";
+                                            } else if (missedVal >= 1) {
+                                                isAlert = true;
+                                                alertColor = "border-amber-200 bg-amber-50/30 dark:bg-amber-950/10 dark:border-amber-900/30 shadow-amber-50/50";
+                                                alertLabel = "Warning";
+                                            }
+                                        } else if (value === "0" && (name.includes("taken") || name.includes("adherence") || type.includes("taken"))) {
+                                            isAlert = true;
+                                            alertColor = "border-red-200 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/30 shadow-red-50/50";
+                                            alertLabel = "Critical";
                                         }
                                     }
 

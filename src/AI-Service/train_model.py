@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split, cross_val_score, Stratifie
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, f1_score
+from sklearn.utils.class_weight import compute_sample_weight
 import joblib
 import os
 import json
@@ -32,7 +33,7 @@ def train_health_risk_model():
     if not os.path.exists(dataset_path):
         logger.info(f"1. Generating a new health risk dataset with probabilistic labeling at {dataset_path}...")
         np.random.seed(42)
-        num_records = 3000
+        num_records = 10000
 
         # Base vital data generation
         data = {
@@ -46,7 +47,11 @@ def train_health_risk_model():
             'sleep_hours': np.round(np.random.normal(6.5, 1.5, num_records), 1),
             'missed_medications': np.random.choice([0, 1, 2, 3], num_records, p=[0.7, 0.15, 0.1, 0.05]),
             'meals_eaten_percent': np.random.choice([100, 75, 50, 25, 0], num_records, p=[0.6, 0.2, 0.1, 0.05, 0.05]),
-            'mood_score': np.random.randint(3, 10, num_records)
+            'mood_score': np.random.randint(3, 10, num_records),
+            'oxygen_saturation': np.random.normal(98, 1.5, num_records).astype(int),
+            'respiratory_rate': np.random.normal(16, 2.5, num_records).astype(int),
+            'water_intake_ml': np.random.normal(1600, 400, num_records).astype(int),
+            'pain_level': np.random.choice([0, 1, 2, 3, 4, 5], num_records, p=[0.6, 0.15, 0.1, 0.08, 0.05, 0.02])
         }
 
         df_health = pd.DataFrame(data)
@@ -57,21 +62,31 @@ def train_health_risk_model():
         df_health.loc[emergency_indices, 'systolic_bp'] = np.random.randint(160, 200, len(emergency_indices))
         df_health.loc[emergency_indices, 'missed_medications'] = np.random.randint(1, 4, len(emergency_indices))
         df_health.loc[emergency_indices, 'sleep_hours'] = np.random.uniform(2, 4, len(emergency_indices))
+        df_health.loc[emergency_indices, 'oxygen_saturation'] = np.random.randint(85, 92, len(emergency_indices))
+        df_health.loc[emergency_indices, 'respiratory_rate'] = np.random.randint(25, 35, len(emergency_indices))
+        df_health.loc[emergency_indices, 'water_intake_ml'] = np.random.randint(200, 450, len(emergency_indices))
+        df_health.loc[emergency_indices, 'pain_level'] = np.random.randint(7, 11, len(emergency_indices))
 
         # 2. Probabilistic Labeling function (Replacing Rule-Based Labeling)
         def generate_probabilistic_labels(df):
             # Calculate log-odds based on vital sign deviations
-            hr_dev = np.abs(df['heart_rate'] - 75) / 15.0
+            hr_dev = np.maximum(0, df['heart_rate'] - 100) / 15.0 + np.maximum(0, 60 - df['heart_rate']) / 10.0
             sbp_dev = np.maximum(0, df['systolic_bp'] - 130) / 20.0 + np.maximum(0, 90 - df['systolic_bp']) / 15.0
             dbp_dev = np.maximum(0, df['diastolic_bp'] - 80) / 10.0 + np.maximum(0, 60 - df['diastolic_bp']) / 10.0
             bs_dev = np.maximum(0, df['blood_sugar'] - 120) / 30.0 + np.maximum(0, 70 - df['blood_sugar']) / 15.0
-            temp_dev = np.abs(df['body_temperature'] - 98.6) / 1.5
+            temp_dev = np.maximum(0, df['body_temperature'] - 99.5) / 1.5 + np.maximum(0, 96.0 - df['body_temperature']) / 1.5
             age_factor = (df['age'] - 65) / 30.0
             mobility_factor = (10 - df['mobility_score']) / 5.0
             sleep_factor = np.maximum(0, 7.0 - df['sleep_hours']) / 2.0
             med_factor = df['missed_medications'] * 0.8
             meals_factor = (100 - df['meals_eaten_percent']) / 50.0
             mood_factor = (10 - df['mood_score']) / 5.0
+            
+            # New features contributions
+            spo2_dev = np.maximum(0, 95 - df['oxygen_saturation']) / 5.0
+            rr_dev = np.maximum(0, df['respiratory_rate'] - 20) / 5.0 + np.maximum(0, 12 - df['respiratory_rate']) / 3.0
+            water_factor = np.maximum(0, 1000 - df['water_intake_ml']) / 500.0
+            pain_factor = df['pain_level'] / 5.0
             
             # Combine linearly to get log-odds
             log_odds = (
@@ -87,13 +102,17 @@ def train_health_risk_model():
                 + 1.5 * med_factor
                 + 0.5 * meals_factor
                 + 0.4 * mood_factor
+                + 2.0 * spo2_dev
+                + 1.0 * rr_dev
+                + 0.8 * water_factor
+                + 1.0 * pain_factor
             )
             prob = 1 / (1 + np.exp(-log_odds))
             return np.random.binomial(1, prob)
 
         df_health['is_high_risk'] = generate_probabilistic_labels(df_health)
 
-        for col in ['heart_rate', 'systolic_bp', 'blood_sugar', 'body_temperature', 'sleep_hours']:
+        for col in ['heart_rate', 'systolic_bp', 'blood_sugar', 'body_temperature', 'sleep_hours', 'oxygen_saturation', 'respiratory_rate', 'water_intake_ml', 'pain_level']:
             mask = np.random.rand(num_records) < 0.03
             df_health.loc[mask, col] = np.nan
 
@@ -104,10 +123,15 @@ def train_health_risk_model():
         df_health = pd.read_excel(dataset_path)
 
     logger.info("2. Checking and handling missing values...")
+    # Clip negative blood sugar values before imputation to ensure they don't skew the median calculation
+    if 'blood_sugar' in df_health.columns:
+        df_health['blood_sugar'] = df_health['blood_sugar'].clip(lower=20)
+        
     health_features = [
         'age', 'heart_rate', 'systolic_bp', 'diastolic_bp', 'blood_sugar', 
         'body_temperature', 'mobility_score', 'sleep_hours', 'missed_medications', 
-        'meals_eaten_percent', 'mood_score'
+        'meals_eaten_percent', 'mood_score', 'oxygen_saturation', 'respiratory_rate',
+        'water_intake_ml', 'pain_level'
     ]
     imputer = SimpleImputer(strategy='median')
     df_health[health_features] = imputer.fit_transform(df_health[health_features])
@@ -118,6 +142,10 @@ def train_health_risk_model():
     df_health['diastolic_bp'] = df_health['diastolic_bp'].clip(30, 150)
     df_health['blood_sugar'] = df_health['blood_sugar'].clip(20, 600)
     df_health['body_temperature'] = df_health['body_temperature'].clip(90.0, 110.0)
+    df_health['oxygen_saturation'] = df_health['oxygen_saturation'].clip(20, 100)
+    df_health['respiratory_rate'] = df_health['respiratory_rate'].clip(0, 100)
+    df_health['water_intake_ml'] = df_health['water_intake_ml'].clip(0, 10000)
+    df_health['pain_level'] = df_health['pain_level'].clip(0, 10)
 
     X_health = df_health[health_features]
     y_health = df_health['is_high_risk']
@@ -127,7 +155,7 @@ def train_health_risk_model():
     )
 
     models = {
-        "Logistic Regression": LogisticRegression(class_weight='balanced', max_iter=1000, random_state=42),
+        "Logistic Regression": LogisticRegression(class_weight='balanced', max_iter=3000, random_state=42),
         "Decision Tree": DecisionTreeClassifier(class_weight='balanced', max_depth=6, random_state=42),
         "Random Forest": RandomForestClassifier(class_weight='balanced', n_estimators=150, max_depth=10, random_state=42),
         "Gradient Boosting": GradientBoostingClassifier(random_state=42)
@@ -140,9 +168,28 @@ def train_health_risk_model():
 
     for name, model in models.items():
         logger.info(f"--- Model: {name} ---")
-        cv_scores = cross_val_score(model, X_train_h, y_train_h, cv=cv, scoring='f1')
-        logger.info(f"  5-Fold CV F1-Score: {np.mean(cv_scores):.4f} (+/- {np.std(cv_scores):.4f})")
-        model.fit(X_train_h, y_train_h)
+        
+        # Address class imbalance in Gradient Boosting using compute_sample_weight
+        if name == "Gradient Boosting":
+            from sklearn.base import clone
+            cv_scores = []
+            for train_idx, val_idx in cv.split(X_train_h, y_train_h):
+                X_tr, X_va = X_train_h.iloc[train_idx], X_train_h.iloc[val_idx]
+                y_tr, y_va = y_train_h.iloc[train_idx], y_train_h.iloc[val_idx]
+                sw_tr = compute_sample_weight(class_weight='balanced', y=y_tr)
+                fold_model = clone(model)
+                fold_model.fit(X_tr, y_tr, sample_weight=sw_tr)
+                preds_va = fold_model.predict(X_va)
+                cv_scores.append(f1_score(y_va, preds_va))
+            
+            logger.info(f"  5-Fold CV F1-Score: {np.mean(cv_scores):.4f} (+/- {np.std(cv_scores):.4f})")
+            sample_weight = compute_sample_weight(class_weight='balanced', y=y_train_h)
+            model.fit(X_train_h, y_train_h, sample_weight=sample_weight)
+        else:
+            cv_scores = cross_val_score(model, X_train_h, y_train_h, cv=cv, scoring='f1')
+            logger.info(f"  5-Fold CV F1-Score: {np.mean(cv_scores):.4f} (+/- {np.std(cv_scores):.4f})")
+            model.fit(X_train_h, y_train_h)
+            
         preds = model.predict(X_test_h)
         test_f1 = f1_score(y_test_h, preds)
         test_acc = accuracy_score(y_test_h, preds)
@@ -325,6 +372,11 @@ def train_meal_recommender(augment=True):
     if augment:
         num_augmented = augment_dataset_with_new_recipes()
         
+    model_exists = os.path.exists('meal_recommender.pkl')
+    if augment and num_augmented == 0 and model_exists:
+        logger.info("No new recipes found and trained model already exists. Skipping retraining to save CPU cycles.")
+        return "skipped"
+        
     if not os.path.exists(meals_csv_path):
         logger.warning(f"Meal dataset not found at {meals_csv_path}. Skipping meal recommender training.")
         return False
@@ -382,7 +434,7 @@ def train_meal_recommender(augment=True):
     # Compile recipe lookup database for macro mappings (taking median values)
     recipe_lookup = {}
 
-    def add_lookup_entries(df, name_col, cal_col, prot_col, carb_col, fat_col):
+    def add_lookup_entries(df, name_col, cal_col, prot_col, carb_col, fat_col, meal_type):
         grouped = df.groupby(name_col)[[cal_col, prot_col, carb_col, fat_col]].median()
         for name, row in grouped.iterrows():
             clean_name = str(name).strip()
@@ -390,12 +442,13 @@ def train_meal_recommender(augment=True):
                 "calories": int(row[cal_col]),
                 "protein": int(row[prot_col]),
                 "carbs": int(row[carb_col]),
-                "fat": int(row[fat_col])
+                "fat": int(row[fat_col]),
+                "type": meal_type
             }
 
-    add_lookup_entries(df_meals, 'Breakfast Suggestion', 'Breakfast Calories', 'Breakfast Protein', 'Breakfast Carbohydrates', 'Breakfast Fats')
-    add_lookup_entries(df_meals, 'Lunch Suggestion', 'Lunch Calories', 'Lunch Protein', 'Lunch Carbohydrates', 'Lunch Fats')
-    add_lookup_entries(df_meals, 'Dinner Suggestion', 'Dinner Calories', 'Dinner Protein.1', 'Dinner Carbohydrates.1', 'Dinner Fats')
+    add_lookup_entries(df_meals, 'Breakfast Suggestion', 'Breakfast Calories', 'Breakfast Protein', 'Breakfast Carbohydrates', 'Breakfast Fats', 'breakfast')
+    add_lookup_entries(df_meals, 'Lunch Suggestion', 'Lunch Calories', 'Lunch Protein', 'Lunch Carbohydrates', 'Lunch Fats', 'lunch')
+    add_lookup_entries(df_meals, 'Dinner Suggestion', 'Dinner Calories', 'Dinner Protein.1', 'Dinner Carbohydrates.1', 'Dinner Fats', 'dinner')
 
     # Also make sure recipes.json tags and description are merged into recipe_lookup if available
     recipes_json_path = "recipes.json"

@@ -523,5 +523,63 @@ public class TeamLeaderController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Get all active dietary recipes/meals
+    /// </summary>
+    [HttpGet("recipes")]
+    [ProducesResponseType(typeof(Response<List<RecipeDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetRecipes()
+    {
+        var response = await _teamLeaderService.GetRecipesAsync();
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Add a new custom dietary recipe (triggers automatic retraining)
+    /// </summary>
+    [HttpPost("recipes")]
+    [ProducesResponseType(typeof(Response<RecipeDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AddRecipe([FromBody] RecipeDto recipeDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new Response<string>("Invalid request data"));
+        }
+        var response = await _teamLeaderService.AddRecipeAsync(recipeDto);
+        if (!response.Succeeded)
+        {
+            return BadRequest(response);
+        }
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Manually trigger AI model retraining
+    /// </summary>
+    [HttpPost("recipes/retrain")]
+    [ProducesResponseType(typeof(Response<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RetrainModel()
+    {
+        var response = await _teamLeaderService.RetrainModelAsync();
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get details of a specific elderly resident
+    /// </summary>
+    [HttpGet("elderly/{elderlyId}")]
+    [ProducesResponseType(typeof(Response<ElderlyDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetElderlyById(int elderlyId)
+    {
+        var response = await _teamLeaderService.GetElderlyByIdAsync(elderlyId);
+        return Ok(response);
+    }
+
     #endregion
 }

@@ -382,65 +382,184 @@ public class GeminiService : IGeminiService
     private string GenerateFallbackReport(ReportGenerationRequest request)
     {
         var sb = new StringBuilder();
+        var elderlyName = request.ElderlyName;
 
-        sb.AppendLine("DAILY CARE REPORT");
-        sb.AppendLine("=================");
+        sb.AppendLine("## DAILY CARE REPORT");
         sb.AppendLine();
-        sb.AppendLine($"Resident: {request.ElderlyName}");
-        sb.AppendLine($"Date: {request.ReportDate:MMMM d, yyyy}");
+        sb.AppendLine($"**Resident:** {elderlyName}  ");
+        sb.AppendLine($"**Date:** {request.ReportDate:MMMM d, yyyy}  ");
+        sb.AppendLine($"**Shift:** Daily Summary  ");
+        sb.AppendLine($"**Prepared By:** Healthcare Assistant  ");
         sb.AppendLine();
-        sb.AppendLine("SUMMARY");
-        sb.AppendLine("-------");
+        sb.AppendLine("***");
+        sb.AppendLine();
+        sb.AppendLine("### 1. SUMMARY");
+        sb.AppendLine();
 
-        var meals = request.HealthMetrics.Where(m => m.MetricType == "Meal").ToList();
-        var medications = request.HealthMetrics.Where(m => m.MetricType == "Medication").ToList();
-        var activities = request.HealthMetrics.Where(m => m.MetricType == "Activity").ToList();
-        var mood = request.HealthMetrics.FirstOrDefault(m => m.MetricType == "Mood");
+        var meals = request.HealthMetrics.Where(m => m.MetricType.Equals("Meal", StringComparison.OrdinalIgnoreCase)).ToList();
+        var medications = request.HealthMetrics.Where(m => m.MetricType.Equals("Medication", StringComparison.OrdinalIgnoreCase)).ToList();
+        var activities = request.HealthMetrics.Where(m => m.MetricType.Equals("Activity", StringComparison.OrdinalIgnoreCase)).ToList();
+        var vitals = request.HealthMetrics.Where(m => m.MetricType.Equals("Vital", StringComparison.OrdinalIgnoreCase) || m.MetricType.Equals("Vitals", StringComparison.OrdinalIgnoreCase)).ToList();
+        var symptoms = request.HealthMetrics.Where(m => m.MetricType.Equals("Symptom", StringComparison.OrdinalIgnoreCase) || m.MetricType.Equals("Symptoms", StringComparison.OrdinalIgnoreCase)).ToList();
+        var mood = request.HealthMetrics.FirstOrDefault(m => m.MetricType.Equals("Mood", StringComparison.OrdinalIgnoreCase));
 
-        if (mood != null)
+        // Generate dynamic summary text based on vitals anomalies
+        var criticalVitalsList = new List<string>();
+        foreach (var v in vitals)
         {
-            sb.AppendLine($"Mood: {mood.MetricValue}");
-        }
-
-        if (meals.Any())
-        {
-            sb.AppendLine();
-            sb.AppendLine("MEALS");
-            foreach (var meal in meals)
+            var vName = v.MetricName.ToLower();
+            if (vName.Contains("blood pressure") || vName.Contains("bp"))
             {
-                sb.AppendLine($"- {meal.MetricName}: {meal.MetricValue} at {meal.RecordedTime:hh\\:mm}");
+                var parts = v.MetricValue.Split('/');
+                if (parts.Length == 2 && int.TryParse(parts[0], out int sys) && int.TryParse(parts[1], out int dia))
+                {
+                    if (sys >= 160 || dia >= 100 || sys <= 85 || dia <= 50) criticalVitalsList.Add("Blood Pressure");
+                }
+            }
+            if ((vName.Contains("oxygen") || vName.Contains("spo2")) && int.TryParse(v.MetricValue, out int o2Val) && o2Val <= 92)
+            {
+                criticalVitalsList.Add("Oxygen Saturation (SpO2)");
+            }
+            if ((vName.Contains("heart rate") || vName.Contains("hr") || vName.Contains("pulse")) && int.TryParse(v.MetricValue, out int hrVal) && (hrVal >= 120 || hrVal <= 50))
+            {
+                criticalVitalsList.Add("Heart Rate");
             }
         }
 
+        var summaryText = $"Overall, {elderlyName} was stable today. All recorded signs and activities have been documented below.";
+        if (criticalVitalsList.Any())
+        {
+            summaryText = $"Overall, {elderlyName} was monitored closely today. Critical vital sign changes in {string.Join(", ", criticalVitalsList)} require immediate clinical review and verification.";
+        }
+
+        sb.AppendLine(summaryText);
+        sb.AppendLine();
+        sb.AppendLine("***");
+        sb.AppendLine();
+        sb.AppendLine("### 2. MEDICATIONS");
+        sb.AppendLine();
         if (medications.Any())
         {
-            sb.AppendLine();
-            sb.AppendLine("MEDICATIONS");
             foreach (var med in medications)
             {
-                sb.AppendLine($"- {med.MetricName}: {med.MetricValue} at {med.RecordedTime:hh\\:mm}");
+                var medName = med.MetricName;
+                var medVal = med.MetricValue;
+                var medTime = med.RecordedTime.ToString(@"hh\:mm");
+                sb.AppendLine($"- **{medName}**: {medVal} (Recorded at {medTime})");
             }
         }
-
+        else
+        {
+            sb.AppendLine("No medication logs recorded for this shift.");
+        }
+        sb.AppendLine();
+        sb.AppendLine("***");
+        sb.AppendLine();
+        sb.AppendLine("### 3. MEALS");
+        sb.AppendLine();
+        if (meals.Any())
+        {
+            foreach (var meal in meals)
+            {
+                var mName = meal.MetricName;
+                var mVal = meal.MetricValue;
+                var mTime = meal.RecordedTime.ToString(@"hh\:mm");
+                sb.AppendLine($"- **{mName}**: {mVal} (Recorded at {mTime})");
+            }
+        }
+        else
+        {
+            sb.AppendLine("No nutrition logs recorded for this shift.");
+        }
+        sb.AppendLine();
+        sb.AppendLine("***");
+        sb.AppendLine();
+        sb.AppendLine("### 4. ACTIVITIES");
+        sb.AppendLine();
         if (activities.Any())
         {
-            sb.AppendLine();
-            sb.AppendLine("ACTIVITIES");
-            foreach (var activity in activities)
+            foreach (var act in activities)
             {
-                sb.AppendLine($"- {activity.MetricName}: {activity.MetricValue} {activity.Unit} at {activity.RecordedTime:hh\\:mm}");
+                var aName = act.MetricName;
+                var aVal = act.MetricValue;
+                var aUnit = act.Unit;
+                var aTime = act.RecordedTime.ToString(@"hh\:mm");
+                sb.AppendLine($"- **{aName}**: {aVal} {aUnit} (Recorded at {aTime})");
             }
         }
+        else
+        {
+            sb.AppendLine("No activity logs recorded for this shift.");
+        }
+        sb.AppendLine();
+        sb.AppendLine("***");
+        sb.AppendLine();
+        sb.AppendLine("### 5. OBSERVATIONS");
+        sb.AppendLine();
 
+        var obsLines = new List<string>();
+        if (vitals.Any())
+        {
+            var vitalDetails = new List<string>();
+            foreach (var v in vitals)
+            {
+                vitalDetails.Add($"{v.MetricName} of {v.MetricValue} {v.Unit} (at {v.RecordedTime:hh\\:mm})");
+            }
+            obsLines.Add($"- **Vitals Monitored**: {string.Join(", ", vitalDetails)}");
+        }
+        if (symptoms.Any())
+        {
+            var symptomDetails = new List<string>();
+            foreach (var s in symptoms)
+            {
+                symptomDetails.Add($"{s.MetricName}: {s.MetricValue} {s.Unit} (at {s.RecordedTime:hh\\:mm})");
+            }
+            obsLines.Add($"- **Symptoms Reported**: {string.Join(", ", symptomDetails)}");
+        }
+        if (mood != null)
+        {
+            obsLines.Add($"- **Mood Rating**: {mood.MetricValue}/10");
+        }
         if (!string.IsNullOrEmpty(request.AdditionalNotes))
         {
-            sb.AppendLine();
-            sb.AppendLine("ADDITIONAL NOTES");
-            sb.AppendLine(request.AdditionalNotes);
+            obsLines.Add($"- **Caregiver Notes**: {request.AdditionalNotes}");
+        }
+
+        if (obsLines.Any())
+        {
+            foreach (var line in obsLines)
+            {
+                sb.AppendLine(line);
+            }
+        }
+        else
+        {
+            sb.AppendLine("No clinical observations recorded.");
         }
 
         sb.AppendLine();
-        sb.AppendLine("Note: This is a template-based report. AI-generated reports will be available when the service is connected.");
+        sb.AppendLine("***");
+        sb.AppendLine();
+        sb.AppendLine("### 6. RECOMMENDATIONS FOR NEXT SHIFT");
+        sb.AppendLine();
+
+        var recs = new List<string>();
+        if (criticalVitalsList.Any())
+        {
+            recs.Add("1. **Immediate Vital Sign Re-assessment**: Re-measure out-of-range parameters immediately using secondary equipment.");
+            recs.Add("2. **Routine Clinical Monitoring**: Monitor the resident closely and record vitals hourly until stabilized.");
+            recs.Add("3. **Escalation**: Notify the nurse supervisor or primary care doctor if parameters do not stabilize.");
+        }
+        else
+        {
+            recs.Add("1. **Routine Care Continuation**: Continue standard daily routine logs, medication scheduling, and hydration checks.");
+            recs.Add("2. **Activity Engagement**: Encourage mild physical movement and standard meals.");
+        }
+
+        foreach (var rec in recs)
+        {
+            sb.AppendLine(rec);
+        }
 
         return sb.ToString();
     }

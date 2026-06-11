@@ -1945,4 +1945,104 @@ public class TeamLeaderService : ITeamLeaderService
             throw;
         }
     }
+
+    /// <summary>
+    /// Retrieve all recipes from AI service
+    /// </summary>
+    public async Task<Response<List<RecipeDto>>> GetRecipesAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Retrieving all active dietary recipes from AI service");
+            var recipes = await _aiPredictionService.GetRecipesAsync();
+            return new Response<List<RecipeDto>>(recipes, "Recipes retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving recipes in TeamLeaderService");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Add a new recipe to AI service (which triggers auto-retraining)
+    /// </summary>
+    public async Task<Response<RecipeDto>> AddRecipeAsync(RecipeDto recipeDto)
+    {
+        try
+        {
+            _logger.LogInformation($"Adding new recipe: {recipeDto.RecipeName}");
+            var created = await _aiPredictionService.AddRecipeAsync(recipeDto);
+            if (created == null)
+            {
+                return new Response<RecipeDto>("Failed to add new recipe or retraining timed out.")
+                {
+                    Succeeded = false
+                };
+            }
+            return new Response<RecipeDto>(created, "Recipe added and model retrained successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding recipe in TeamLeaderService");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Explicitly trigger AI model retraining
+    /// </summary>
+    public async Task<Response<bool>> RetrainModelAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Explicitly triggering AI model retraining");
+            var result = await _aiPredictionService.RetrainModelAsync();
+            if (!result)
+            {
+                return new Response<bool>("Model retraining failed. Please check logs.")
+                {
+                    Succeeded = false,
+                    Data = false
+                };
+            }
+            return new Response<bool>(true, "Model retraining completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retraining model in TeamLeaderService");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get details of a specific elderly resident
+    /// </summary>
+    public async Task<Response<ElderlyDetailDto>> GetElderlyByIdAsync(int elderlyId)
+    {
+        try
+        {
+            _logger.LogInformation($"Getting elderly resident detail for ID: {elderlyId} in TeamLeaderService");
+
+            var elderly = await _context.Elderlies
+                .Include(e => e.EmployeeAssignments)
+                    .ThenInclude(ea => ea.Employee)
+                .Include(e => e.FamilyMembers)
+                    .ThenInclude(fm => fm.FamilyMember)
+                .FirstOrDefaultAsync(e => e.Id == elderlyId && !e.IsDeleted);
+
+            if (elderly == null)
+            {
+                throw new NotFoundException($"Resident with ID {elderlyId} not found");
+            }
+
+            var dto = _mapper.Map<ElderlyDetailDto>(elderly);
+            return new Response<ElderlyDetailDto>(dto, "Resident details retrieved successfully");
+        }
+        catch (Exception ex) when (ex is not NotFoundException)
+        {
+            _logger.LogError(ex, $"Error getting elderly resident detail for ID: {elderlyId}");
+            throw;
+        }
+    }
 }

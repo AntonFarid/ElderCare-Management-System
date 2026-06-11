@@ -242,6 +242,70 @@ export default function TeamLeaderReports() {
                                     anomaliesList.push({ text: `Missed All Meds`, type: "critical", icon: "💊" });
                                 }
                             }
+
+                            // 6. Water Intake Check
+                            if (name.includes("water") || (type.includes("meal") && name.includes("water"))) {
+                                const water = parseInt(value);
+                                if (!isNaN(water)) {
+                                    if (water < 500) {
+                                        if (maxSeverity !== "critical") maxSeverity = "warning";
+                                        severityDetails.push(`Dehydration Risk (${water} ml)`);
+                                        anomaliesList.push({ text: `Dehydration Risk (${water} ml)`, type: "warning", icon: "⚠️" });
+                                    } else if (water < 1000) {
+                                        if (maxSeverity !== "critical") maxSeverity = "warning";
+                                        severityDetails.push(`Low Water (${water} ml)`);
+                                        anomaliesList.push({ text: `Low Water (${water} ml)`, type: "warning", icon: "💧" });
+                                    }
+                                }
+                            }
+
+                            // 7. Pain Level Check
+                            if (name.includes("pain") || (type.includes("symptom") && name.includes("pain"))) {
+                                const pain = parseInt(value);
+                                if (!isNaN(pain)) {
+                                    if (pain >= 7) {
+                                        if (maxSeverity !== "critical") maxSeverity = "warning";
+                                        severityDetails.push(`Severe Pain (${pain}/10)`);
+                                        anomaliesList.push({ text: `Severe Pain (${pain}/10)`, type: "warning", icon: "🔺" });
+                                    } else if (pain >= 4) {
+                                        if (maxSeverity !== "critical") maxSeverity = "warning";
+                                        severityDetails.push(`Moderate Pain (${pain}/10)`);
+                                        anomaliesList.push({ text: `Moderate Pain (${pain}/10)`, type: "warning", icon: "⚡" });
+                                    }
+                                }
+                            }
+
+                            // 8. Oxygen Saturation Check
+                            if (name.includes("oxygen") || name.includes("spo2") || name.includes("o2 sat") || (type.includes("vital") && (name.includes("oxygen") || name.includes("sat")))) {
+                                const o2 = parseInt(value);
+                                if (!isNaN(o2)) {
+                                    if (o2 <= 92) {
+                                        maxSeverity = "critical";
+                                        severityDetails.push(`Hypoxemia (${o2}%)`);
+                                        anomaliesList.push({ text: `Hypoxemia (${o2}%)`, type: "critical", icon: "🔻" });
+                                    } else if (o2 <= 94) {
+                                        if (maxSeverity !== "critical") maxSeverity = "warning";
+                                        severityDetails.push(`Low O2 Sat (${o2}%)`);
+                                        anomaliesList.push({ text: `Low O2 Sat (${o2}%)`, type: "warning", icon: "🫁" });
+                                    }
+                                }
+                            }
+
+                            // 9. Respiratory Rate Check
+                            if (name.includes("respiratory") || name === "rr" || (type.includes("vital") && (name.includes("respiratory") || name.includes("breaths")))) {
+                                const rr = parseInt(value);
+                                if (!isNaN(rr)) {
+                                    if (rr >= 25 || rr <= 10) {
+                                        maxSeverity = "critical";
+                                        severityDetails.push(`Abnormal RR (${rr} breaths/min)`);
+                                        anomaliesList.push({ text: `Abnormal RR (${rr} breaths/min)`, type: "critical", icon: "🫁" });
+                                    } else if (rr >= 21 || rr <= 11) {
+                                        if (maxSeverity !== "critical") maxSeverity = "warning";
+                                        severityDetails.push(`Elevated RR (${rr} breaths/min)`);
+                                        anomaliesList.push({ text: `Elevated RR (${rr} breaths/min)`, type: "warning", icon: "🫁" });
+                                    }
+                                }
+                            }
                         });
                     }
 
@@ -657,6 +721,13 @@ export default function TeamLeaderReports() {
                                                                         </span>
                                                                     );
                                                                     anomalyPillStyle = "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border border-red-200/50 dark:border-red-900/10 shadow-sm";
+                                                                } else if (hasAiWarning) {
+                                                                    mainBadge = (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 shadow-sm">
+                                                                            ⚠️ Warning
+                                                                        </span>
+                                                                    );
+                                                                    anomalyPillStyle = "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/10 shadow-sm";
                                                                 } else if (anomalies.length > 0) {
                                                                     mainBadge = (
                                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 shadow-sm">
@@ -790,7 +861,7 @@ export default function TeamLeaderReports() {
                         }
                     >
                         <div className="p-4 pt-6">
-                            <ReportsApprovalHistory elderlyId={selectedElderlyId} />
+                            <ReportsApprovalHistory allResidents={allResidents} initialElderlyId={selectedElderlyId} />
                         </div>
                     </Tab>
                 </Tabs>

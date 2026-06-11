@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using SmartElderlyCare.Application.DTOs.AI;
 
@@ -7,4 +8,7 @@ public interface IAiPredictionService
 {
     Task<HealthRiskOutputDto?> PredictHealthRiskAsync(HealthRiskInputDto inputData);
     Task<DietRecommendationOutputDto?> RecommendDietAsync(DietRecommendationInputDto inputData);
+    Task<List<RecipeDto>> GetRecipesAsync();
+    Task<RecipeDto?> AddRecipeAsync(RecipeDto recipe);
+    Task<bool> RetrainModelAsync();
 }

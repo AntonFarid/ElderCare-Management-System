@@ -65,4 +65,12 @@ public interface ITeamLeaderService
 
     // AI Dietary Recommendation
     Task<Response<DietRecommendationOutputDto>> GetDietRecommendationAsync(int elderlyId);
+
+    // AI Recipes & Model Management
+    Task<Response<List<RecipeDto>>> GetRecipesAsync();
+    Task<Response<RecipeDto>> AddRecipeAsync(RecipeDto recipeDto);
+    Task<Response<bool>> RetrainModelAsync();
+
+    // Resident Details Management
+    Task<Response<ElderlyDetailDto>> GetElderlyByIdAsync(int elderlyId);
 }

@@ -39,6 +39,18 @@ public class HealthRiskInputDto
 
     [JsonPropertyName("mood_score")]
     public int MoodScore { get; set; }
+
+    [JsonPropertyName("oxygen_saturation")]
+    public int OxygenSaturation { get; set; }
+
+    [JsonPropertyName("respiratory_rate")]
+    public int RespiratoryRate { get; set; }
+
+    [JsonPropertyName("water_intake_ml")]
+    public int WaterIntakeMl { get; set; }
+
+    [JsonPropertyName("pain_level")]
+    public int PainLevel { get; set; }
 }
 
 public class HealthRiskOutputDto

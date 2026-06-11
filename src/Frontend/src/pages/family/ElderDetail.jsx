@@ -265,11 +265,7 @@ export default function ElderDetail() {
                                 </div>
                             </div>
 
-                            <div className="pt-4 flex gap-3">
-                                <Button variant="flat" color="primary" className="w-full font-bold h-12" startContent={<MessageCircle className="w-4 h-4" />}>
-                                    Send Message
-                                </Button>
-                            </div>
+
                         </CardBody>
                     </Card>
 

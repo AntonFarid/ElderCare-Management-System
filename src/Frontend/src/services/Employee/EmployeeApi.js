@@ -113,6 +113,14 @@ class EmployeeApiServices {
         return response;
     }
 
+    // Get AI diet recommendation for resident
+    async getDietRecommendation(elderlyId) {
+        const response = await axios.get(import.meta.env.VITE_BASE_URL + `Employee/assigned-elderly/${elderlyId}/diet-recommendation`, {
+            headers: this.#getAuthHeaders()
+        });
+        return response;
+    }
+
 }
 
 

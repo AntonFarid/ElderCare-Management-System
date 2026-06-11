@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,6 +9,7 @@ using SmartElderlyCare.Application.DTOs.Elderly;
 using SmartElderlyCare.Application.DTOs.Schedule;
 using SmartElderlyCare.Application.DTOs.User;
 using SmartElderlyCare.Application.Wrappers;
+using SmartElderlyCare.Application.DTOs.AI;
 
 namespace SmartElderlyCare.Application.Interfaces;
 
@@ -46,4 +47,7 @@ public interface IEmployeeService
     Task<Response<AttendanceLogDto>> ClockInAsync(int employeeId);
     Task<Response<AttendanceLogDto>> ClockOutAsync(int employeeId);
     Task<Response<AttendanceLogDto>> GetCurrentAttendanceStatusAsync(int employeeId);
+
+    // AI Dietary Recommendation
+    Task<Response<DietRecommendationOutputDto>> GetDietRecommendationAsync(int employeeId, int elderlyId);
 }

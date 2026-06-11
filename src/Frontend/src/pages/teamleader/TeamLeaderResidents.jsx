@@ -87,8 +87,7 @@ export default function TeamLeaderResidents() {
     }, [searchTerm, residents]);
 
     const handleViewResident = (res) => {
-        setSelectedResident(res);
-        onOpen();
+        navigate(`/teamleader/residents/${res.id}`);
     };
 
     return (

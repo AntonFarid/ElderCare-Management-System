@@ -47,10 +47,6 @@ import ReactMarkdown from 'react-markdown';
 export default function ResidentDetailsModal({ isOpen, onClose, resident }) {
   const navigate = useNavigate();
   
-  // Patterns state
-  const [patterns, setPatterns] = useState(null);
-  const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
-  
   // Diet state
   const [dietRecommendation, setDietRecommendation] = useState(null);
   const [isGeneratingDiet, setIsGeneratingDiet] = useState(false);
@@ -62,13 +58,10 @@ export default function ResidentDetailsModal({ isOpen, onClose, resident }) {
   } = useDisclosure();
 
   useEffect(() => {
-    if (isOpen && resident?.id) {
-      fetchPatterns();
-    } else {
-      setPatterns(null);
+    if (!isOpen) {
       setDietRecommendation(null);
     }
-  }, [isOpen, resident?.id]);
+  }, [isOpen]);
 
   const handleGenerateDiet = async () => {
     setIsGeneratingDiet(true);
@@ -85,28 +78,6 @@ export default function ResidentDetailsModal({ isOpen, onClose, resident }) {
     }
   };
 
-  const fetchPatterns = async () => {
-    setIsLoadingPatterns(true);
-    try {
-      const response = await teamLeaderApiServices.getHealthPatterns(resident.id);
-      if (response.data.succeeded && response.data.data) {
-        setPatterns(response.data.data);
-      } else {
-        // Fallback: If no patterns, try a quick diagnosis summary
-        const diagRes = await teamLeaderApiServices.getResidentDiagnosis(resident.id);
-        if (diagRes.data.succeeded && diagRes.data.data) {
-            setPatterns(diagRes.data.data.diagnosis || diagRes.data.data);
-        } else {
-            setPatterns("Insufficient data. AI requires at least 2-3 recent health reports to identify chronic patterns.");
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching health patterns:", error);
-      setPatterns("Connectivity issue. AI services are currently synchronizing.");
-    } finally {
-      setIsLoadingPatterns(false);
-    }
-  };
 
 
   if (!resident) return null;
@@ -174,81 +145,6 @@ export default function ResidentDetailsModal({ isOpen, onClose, resident }) {
                     </div>
                   </section>
 
-                  {/* AI Chronic Pattern Detection Section */}
-                  <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> AI Chronic Care Patterns
-                      </h4>
-                      <div className="flex items-center gap-2">
-                         {isLoadingPatterns && <Spinner size="sm" color="indigo" />}
-                         <Tooltip content="Force AI Re-Scan">
-                            <Button isIconOnly size="sm" variant="light" onPress={fetchPatterns} disabled={isLoadingPatterns} className="text-slate-400 hover:text-indigo-500">
-                                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPatterns ? 'animate-spin' : ''}`} />
-                            </Button>
-                         </Tooltip>
-                      </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/10 dark:to-purple-900/10 p-5 rounded-[24px] border border-indigo-100 dark:border-indigo-800 relative overflow-hidden group min-h-[140px]">
-                      <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
-                        <TrendingUp className="w-24 h-24 text-indigo-600" />
-                      </div>
-                      
-                      {isLoadingPatterns ? (
-                        <div className="flex flex-col items-center justify-center py-6 gap-3">
-                          <Spinner color="indigo" size="md" />
-                          <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Scanning clinical history...</p>
-                        </div>
-                      ) : patterns ? (
-                        <div className="space-y-4 relative z-10">
-                          {typeof patterns === "string" ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-300">
-                              <ReactMarkdown>{patterns.trim() || "No chronic patterns identified yet."}</ReactMarkdown>
-                            </div>
-                          ) : Array.isArray(patterns) ? (
-                            patterns.length === 0 ? (
-                              <p className="text-xs text-slate-500 italic">No significant health patterns or alerts detected. Resident condition appears stable.</p>
-                            ) : (
-                              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
-                                {patterns.map((alert, idx) => {
-                                  const severityColors = {
-                                    High: "danger",
-                                    Medium: "warning",
-                                    Low: "primary"
-                                  };
-                                  return (
-                                    <div key={idx} className="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-indigo-100/30 shadow-sm space-y-1">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{alert.alertType || "Alert"}</span>
-                                        <Chip size="sm" color={severityColors[alert.severity] || severityColors[alert.Severity] || "default"} variant="flat" className="h-5 text-[9px] font-bold uppercase">
-                                          {alert.severity || alert.Severity}
-                                        </Chip>
-                                      </div>
-                                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{alert.message}</p>
-                                      {alert.recommendation && (
-                                        <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">💡 {alert.recommendation}</p>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )
-                          ) : (
-                            <p className="text-xs text-slate-500 italic">No chronic patterns identified yet.</p>
-                          )}
-                          <div className="flex items-center gap-2 pt-2 border-t border-indigo-100/50 mt-2">
-                            <AlertTriangle className="w-3 h-3 text-amber-500" />
-                            <span className="text-[10px] font-bold text-amber-600 uppercase">AI Predictive Insight Only — Consult staff</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center">
-                          <p className="text-xs text-slate-400 italic font-medium">Insufficient timeline to identify chronic patterns.</p>
-                        </div>
-                      )}
-                    </div>
-                  </section>
 
                   <section>
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 text-danger-500">
